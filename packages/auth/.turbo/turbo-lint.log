@@ -1,6 +1,0 @@
-
-> @repo/auth@0.0.0 lint /Users/pedroapfilho/dev/acme-monorepo/packages/auth
-> oxlint src
-
-Found 0 warnings and 0 errors.
-Finished in 875ms on 3 files using 14 threads.

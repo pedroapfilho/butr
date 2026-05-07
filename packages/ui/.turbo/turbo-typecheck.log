@@ -1,4 +1,0 @@
-
-> @repo/ui@0.0.0 typecheck /Users/pedroapfilho/dev/acme-monorepo/packages/ui
-> tsc --noEmit
-

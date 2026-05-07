@@ -1,8 +1,0 @@
-{
-  "extends": "@repo/typescript-config/library.json",
-  "compilerOptions": {
-    "target": "ES2022"
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
-}

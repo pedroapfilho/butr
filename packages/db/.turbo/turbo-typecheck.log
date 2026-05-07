@@ -1,4 +1,0 @@
-
-> @repo/db@ typecheck /Users/pedroapfilho/dev/acme-monorepo/packages/db
-> tsc --noEmit
-
