@@ -149,12 +149,18 @@ const useWalletForOperation = (chainPlatform: ChainPlatform | null) => {
   return useStoreWithEqualityFn(
     store,
     (state) => {
-      if (!chainPlatform) return undefined;
+      if (!chainPlatform) {
+        return undefined;
+      }
       return state.getWalletForOperation(chainPlatform);
     },
     (a, b) => {
-      if (a === b) return true;
-      if (!a || !b) return false;
+      if (a === b) {
+        return true;
+      }
+      if (!a || !b) {
+        return false;
+      }
       return (
         a.connector.id === b.connector.id &&
         a.account.walletAddress === b.account.walletAddress &&

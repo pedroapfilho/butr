@@ -14,7 +14,9 @@ const WalletManagerProvider: React.FC<WalletManagerProviderProps> = ({ children,
   const hasHydratedRef = useRef(false);
 
   useEffect(() => {
-    if (hasHydratedRef.current) return;
+    if (hasHydratedRef.current) {
+      return;
+    }
     hasHydratedRef.current = true;
 
     const state = store.getState();

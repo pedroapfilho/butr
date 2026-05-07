@@ -2,7 +2,7 @@ import type { ChainPlatform, ConnectedWallet, WalletMode } from "../types";
 import { createBrowserStorageDriver, createMemoryStorageDriver } from "./browser-storage-driver";
 import type { ConnectedWalletsRecord, StorageDriver, WalletPersistence } from "./persistence";
 
-const VALID_CHAIN_PLATFORMS = ["evm", "svm", "move", "unified"];
+const VALID_CHAIN_PLATFORMS = new Set(["evm", "svm", "move", "unified"]);
 
 type StorageConfig = {
   keyPrefix: string;
@@ -44,19 +44,29 @@ class WalletStorage implements WalletPersistence {
         return false;
       }
 
-      if (!VALID_CHAIN_PLATFORMS.includes(key)) {
+      if (!VALID_CHAIN_PLATFORMS.has(key)) {
         return false;
       }
 
       const wallet = value as Record<string, unknown>;
 
-      if (typeof wallet.connectorId !== "string") return false;
-      if (!wallet.account || typeof wallet.account !== "object") return false;
+      if (typeof wallet.connectorId !== "string") {
+        return false;
+      }
+      if (!wallet.account || typeof wallet.account !== "object") {
+        return false;
+      }
 
       const account = wallet.account as Record<string, unknown>;
-      if (typeof account.walletAddress !== "string") return false;
-      if (typeof account.id !== "string") return false;
-      if (!account.chain || typeof account.chain !== "object") return false;
+      if (typeof account.walletAddress !== "string") {
+        return false;
+      }
+      if (typeof account.id !== "string") {
+        return false;
+      }
+      if (!account.chain || typeof account.chain !== "object") {
+        return false;
+      }
 
       return true;
     });
@@ -65,7 +75,9 @@ class WalletStorage implements WalletPersistence {
   async getConnectedWallets(): Promise<ConnectedWalletsRecord> {
     try {
       const stored = await this.persistent.getItem(this.connectedWalletsKey);
-      if (!stored) return {};
+      if (!stored) {
+        return {};
+      }
 
       const parsed: unknown = JSON.parse(stored);
 
@@ -86,11 +98,11 @@ class WalletStorage implements WalletPersistence {
   async setConnectedWallets(wallets: Map<ChainPlatform, ConnectedWallet>): Promise<void> {
     try {
       const serializable = Object.fromEntries(
-        Array.from(wallets.entries()).map(([platform, wallet]) => [
+        [...wallets.entries()].map(([platform, wallet]) => [
           platform,
           {
-            connectorId: wallet.connector.id,
             account: wallet.account,
+            connectorId: wallet.connector.id,
           },
         ]),
       );
@@ -124,7 +136,9 @@ class WalletStorage implements WalletPersistence {
   async getWalletMode(): Promise<WalletMode> {
     try {
       const mode = await this.persistent.getItem(this.walletModeKey);
-      if (!mode) return "none";
+      if (!mode) {
+        return "none";
+      }
 
       if (mode === "smart-wallet" || mode === "external-wallet" || mode === "none") {
         return mode;

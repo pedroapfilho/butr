@@ -20,7 +20,7 @@ const createTestStore = (overrides?: Partial<WalletManagerConfig>) => {
   });
   const config = createMockConfig({ storage, ...overrides });
   const store = createWalletStore(config);
-  return { store, config, storage, persistent, session };
+  return { config, persistent, session, storage, store };
 };
 
 const hydrateStore = async (store: ReturnType<typeof createWalletStore>) => {
@@ -57,9 +57,9 @@ describe("createWalletStore", () => {
     it("connects a wallet and updates state", async () => {
       const account = createMockAccount();
       const connector = createMockConnector({
-        id: "metamask",
         chainPlatform: "evm",
         getAccount: vi.fn().mockResolvedValue(account),
+        id: "metamask",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -77,7 +77,7 @@ describe("createWalletStore", () => {
     });
 
     it("clears the disconnect-intent flag when connecting", async () => {
-      const { store, storage } = createTestStore();
+      const { storage, store } = createTestStore();
       await storage.markUserDisconnected(true);
       await hydrateStore(store);
       expect(store.getState().isUserDisconnected).toBe(true);
@@ -99,8 +99,8 @@ describe("createWalletStore", () => {
 
     it("sets walletMode to smart-wallet for smart wallets", async () => {
       const connector = createMockConnector({
-        isSmartWallet: true,
         chainPlatform: "unified",
+        isSmartWallet: true,
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -134,9 +134,9 @@ describe("createWalletStore", () => {
         isSmartWallet: false,
       });
       const smartConnector = createMockConnector({
+        chainPlatform: "unified",
         id: "privy",
         isSmartWallet: true,
-        chainPlatform: "unified",
       });
       const { store } = createTestStore({
         createConnector: vi
@@ -158,9 +158,9 @@ describe("createWalletStore", () => {
 
     it("auto-disconnects smart wallets when connecting external wallet", async () => {
       const smartConnector = createMockConnector({
+        chainPlatform: "unified",
         id: "privy",
         isSmartWallet: true,
-        chainPlatform: "unified",
       });
       const externalConnector = createMockConnector({
         id: "metamask",
@@ -190,8 +190,8 @@ describe("createWalletStore", () => {
       expect(onConnect).toHaveBeenCalledTimes(1);
       expect(onConnect).toHaveBeenCalledWith(
         expect.objectContaining({
-          connector: expect.any(Object),
           account: expect.any(Object),
+          connector: expect.any(Object),
         }),
       );
     });
@@ -269,7 +269,7 @@ describe("createWalletStore", () => {
 
     it("sets the disconnect-intent flag", async () => {
       const connector = createMockConnector({ id: "metamask" });
-      const { store, storage } = createTestStore({
+      const { storage, store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
 
@@ -284,8 +284,8 @@ describe("createWalletStore", () => {
 
     it("falls back to unified when requesting evm", async () => {
       const connector = createMockConnector({
-        id: "privy",
         chainPlatform: "unified",
+        id: "privy",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -315,8 +315,8 @@ describe("createWalletStore", () => {
       const onDisconnect = vi.fn();
       const connector = createMockConnector();
       const { store } = createTestStore({
-        onDisconnect,
         createConnector: vi.fn().mockReturnValue(connector),
+        onDisconnect,
       });
 
       await store.getState().connectWallet("test");
@@ -328,7 +328,7 @@ describe("createWalletStore", () => {
 
     it("clears storage when last wallet disconnected", async () => {
       const connector = createMockConnector();
-      const { store, storage } = createTestStore({
+      const { storage, store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
       const clearAllSpy = vi.spyOn(storage, "clearAll");
@@ -344,9 +344,9 @@ describe("createWalletStore", () => {
     it("completes disconnect even when storage.clearAll throws", async () => {
       const onDisconnect = vi.fn();
       const connector = createMockConnector();
-      const { store, storage } = createTestStore({
-        onDisconnect,
+      const { storage, store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
+        onDisconnect,
       });
       vi.spyOn(storage, "clearAll").mockImplementation(() =>
         Promise.reject(new Error("storage exploded")),
@@ -367,8 +367,8 @@ describe("createWalletStore", () => {
   describe("getWalletByPlatform", () => {
     it("returns wallet for exact platform key", async () => {
       const connector = createMockConnector({
-        id: "metamask",
         chainPlatform: "evm",
+        id: "metamask",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -387,18 +387,18 @@ describe("createWalletStore", () => {
 
     it("falls back to unified for evm platform", async () => {
       const evmAccount = createMockAccount({
-        walletAddress: "0xEVM",
         chain: createMockChain({ id: "eip155:1" }),
+        walletAddress: "0xEVM",
       });
       const unifiedAccount = createMockAccount({
-        walletAddress: "0xUNIFIED",
         chain: createMockChain({ id: "unified:1" }),
+        walletAddress: "0xUNIFIED",
       });
       const connector = createMockConnector({
-        id: "privy",
         chainPlatform: "unified",
         getAccount: vi.fn().mockResolvedValue(unifiedAccount),
         getAccountForPlatform: vi.fn().mockReturnValue(evmAccount),
+        id: "privy",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -412,17 +412,17 @@ describe("createWalletStore", () => {
 
     it("falls back to unified for svm platform", async () => {
       const svmAccount = createMockAccount({
-        walletAddress: "SoLaNa123",
         chain: createMockChain({ id: "solana:mainnet", namespace: "solana" }),
+        walletAddress: "SoLaNa123",
       });
       const unifiedAccount = createMockAccount({
         walletAddress: "0xUNIFIED",
       });
       const connector = createMockConnector({
-        id: "privy",
         chainPlatform: "unified",
         getAccount: vi.fn().mockResolvedValue(unifiedAccount),
         getAccountForPlatform: vi.fn().mockReturnValue(svmAccount),
+        id: "privy",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -470,9 +470,9 @@ describe("createWalletStore", () => {
         walletAddress: "0xRESOLVED",
       });
       const connector = createMockConnector({
-        id: "privy",
         chainPlatform: "evm",
         getAccountForPlatform: vi.fn().mockReturnValue(resolvedAccount),
+        id: "privy",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -500,8 +500,8 @@ describe("createWalletStore", () => {
       await store.getState().connectWallet("test");
 
       const newAccount = createMockAccount({
-        walletAddress: "0xNEW",
         chain: createMockChain({ id: "eip155:42161" }),
+        walletAddress: "0xNEW",
       });
       store.getState().updateWalletAccount("evm", newAccount);
 
@@ -581,7 +581,7 @@ describe("createWalletStore", () => {
   describe("reset", () => {
     it("clears all wallets and storage", async () => {
       const connector = createMockConnector();
-      const { store, storage } = createTestStore({
+      const { storage, store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
       const clearAllSpy = vi.spyOn(storage, "clearAll");
@@ -603,8 +603,8 @@ describe("createWalletStore", () => {
       const onReset = vi.fn();
       const connector = createMockConnector();
       const { store } = createTestStore({
-        onReset,
         createConnector: vi.fn().mockReturnValue(connector),
+        onReset,
       });
 
       await store.getState().connectWallet("test");
@@ -616,7 +616,7 @@ describe("createWalletStore", () => {
 
     it("sets the disconnect-intent flag", async () => {
       const connector = createMockConnector();
-      const { store, storage } = createTestStore({
+      const { storage, store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
 
@@ -644,10 +644,10 @@ describe("createWalletStore", () => {
   describe("connectOIDCWallet", () => {
     it("delegates to connectWallet", async () => {
       const connector = createMockConnector({
+        chainPlatform: "unified",
         id: "google",
         isOIDCBased: true,
         isSmartWallet: true,
-        chainPlatform: "unified",
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
@@ -665,10 +665,10 @@ describe("createWalletStore", () => {
         isSmartWallet: false,
       });
       const oidcConnector = createMockConnector({
+        chainPlatform: "unified",
         id: "google",
         isOIDCBased: true,
         isSmartWallet: true,
-        chainPlatform: "unified",
       });
       const { store } = createTestStore({
         createConnector: vi
@@ -688,15 +688,15 @@ describe("createWalletStore", () => {
 
     it("disconnects smart wallets when connecting external OIDC wallet", async () => {
       const smartConnector = createMockConnector({
+        chainPlatform: "unified",
         id: "privy",
         isSmartWallet: true,
-        chainPlatform: "unified",
       });
       const externalOIDCConnector = createMockConnector({
+        chainPlatform: "evm",
         id: "oidc-external",
         isOIDCBased: true,
         isSmartWallet: false,
-        chainPlatform: "evm",
       });
       const { store } = createTestStore({
         createConnector: vi
@@ -727,8 +727,8 @@ describe("createWalletStore", () => {
     it("restores wallets from storage", async () => {
       const account = createMockAccount();
       const connector = createMockConnector({
-        id: "metamask",
         getAccount: vi.fn().mockResolvedValue(account),
+        id: "metamask",
       });
       const persistent = createMockStorageDriver();
       const session = createMockStorageDriver();
@@ -739,13 +739,13 @@ describe("createWalletStore", () => {
       });
 
       const wallets = new Map([
-        ["evm" as ChainPlatform, { connector: createMockConnector({ id: "metamask" }), account }],
+        ["evm" as ChainPlatform, { account, connector: createMockConnector({ id: "metamask" }) }],
       ]);
       await storage.setConnectedWallets(wallets);
 
       const { store } = createTestStore({
-        storage,
         createConnector: vi.fn().mockReturnValue(connector),
+        storage,
       });
 
       await hydrateStore(store);
@@ -756,7 +756,7 @@ describe("createWalletStore", () => {
     });
 
     it("syncs isUserDisconnected from storage", async () => {
-      const { store, storage } = createTestStore();
+      const { storage, store } = createTestStore();
       await storage.markUserDisconnected(true);
 
       await hydrateStore(store);
@@ -781,8 +781,8 @@ describe("createWalletStore", () => {
         [
           "unified" as ChainPlatform,
           {
-            connector: createMockConnector({ id: "google" }),
             account: createMockAccount(),
+            connector: createMockConnector({ id: "google" }),
           },
         ],
       ]);
@@ -790,8 +790,8 @@ describe("createWalletStore", () => {
       const removeSpy = vi.spyOn(storage, "removeConnectedWallet");
 
       const { store } = createTestStore({
-        storage,
         createConnector: vi.fn().mockReturnValue(connector),
+        storage,
       });
 
       await hydrateStore(store);
@@ -802,8 +802,8 @@ describe("createWalletStore", () => {
 
     it("handles connector.connect failure gracefully", async () => {
       const connector = createMockConnector({
-        id: "broken",
         connect: vi.fn().mockRejectedValue(new Error("connection failed")),
+        id: "broken",
       });
       const persistent = createMockStorageDriver();
       const session = createMockStorageDriver();
@@ -817,8 +817,8 @@ describe("createWalletStore", () => {
         [
           "evm" as ChainPlatform,
           {
-            connector: createMockConnector({ id: "broken" }),
             account: createMockAccount(),
+            connector: createMockConnector({ id: "broken" }),
           },
         ],
       ]);
@@ -826,8 +826,8 @@ describe("createWalletStore", () => {
       const removeSpy = vi.spyOn(storage, "removeConnectedWallet");
 
       const { store } = createTestStore({
-        storage,
         createConnector: vi.fn().mockReturnValue(connector),
+        storage,
       });
 
       await hydrateStore(store);
@@ -840,8 +840,8 @@ describe("createWalletStore", () => {
     it("uses stored account as fallback when getAccount returns null", async () => {
       const storedAccount = createMockAccount({ walletAddress: "0xSTORED" });
       const connector = createMockConnector({
-        id: "metamask",
         getAccount: vi.fn().mockResolvedValue(null),
+        id: "metamask",
       });
       const persistent = createMockStorageDriver();
       const session = createMockStorageDriver();
@@ -855,16 +855,16 @@ describe("createWalletStore", () => {
         [
           "evm" as ChainPlatform,
           {
-            connector: createMockConnector({ id: "metamask" }),
             account: storedAccount,
+            connector: createMockConnector({ id: "metamask" }),
           },
         ],
       ]);
       await storage.setConnectedWallets(wallets);
 
       const { store } = createTestStore({
-        storage,
         createConnector: vi.fn().mockReturnValue(connector),
+        storage,
       });
 
       await hydrateStore(store);
@@ -889,16 +889,16 @@ describe("createWalletStore", () => {
         [
           "evm" as ChainPlatform,
           {
-            connector: createMockConnector({ id: "metamask" }),
             account: createMockAccount(),
+            connector: createMockConnector({ id: "metamask" }),
           },
         ],
       ]);
       await storage.setConnectedWallets(wallets);
 
       const { store } = createTestStore({
-        storage,
         createConnector: vi.fn().mockReturnValue(connector),
+        storage,
       });
 
       await hydrateStore(store);

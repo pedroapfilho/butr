@@ -21,20 +21,17 @@ export default defineConfig({
         ],
       },
     },
-    // `no-console` is on globally because shipping `console.*` to production
-    // hides errors from any structured logger. These three files are the
-    // exception: they're pre-logger error sinks for unexpected auth/proxy
-    // failures (DB down, misconfig). Without a shared logger package, the
-    // alternative is silent failure. Drop these overrides once `@repo/observability`
-    // (or similar) lands and these files migrate to it.
+    // butr is a published library that has no shared logger to inject. It uses
+    // `console.warn` / `console.error` in error paths (storage failures,
+    // connector restoration failures, devtools-only diagnostics) so consumers
+    // can see them without us swallowing the error. Same reason for `_`-prefixed
+    // internal store methods: a long-standing Zustand convention that keeps
+    // implementation details out of the public surface area.
     {
-      files: [
-        "apps/web/src/proxy.ts",
-        "apps/web/src/lib/auth-helpers.ts",
-        "packages/auth/src/server.ts",
-      ],
+      files: ["packages/butr/src/**/*.ts", "packages/butr/src/**/*.tsx"],
       rules: {
         "no-console": "off",
+        "no-underscore-dangle": "off",
       },
     },
   ],

@@ -13,7 +13,7 @@ const hasWebStorage = (kind: WebStorageKind): boolean => {
   try {
     return (
       typeof globalThis !== "undefined" &&
-      typeof (globalThis as { [k: string]: unknown })[kind] !== "undefined"
+      (globalThis as { [k: string]: unknown })[kind] !== undefined
     );
   } catch {
     return false;
@@ -26,11 +26,11 @@ const createMemoryStorageDriver = (): StorageDriver => {
     getItem(key) {
       return memory.get(key) ?? null;
     },
-    setItem(key, value) {
-      memory.set(key, value);
-    },
     removeItem(key) {
       memory.delete(key);
+    },
+    setItem(key, value) {
+      memory.set(key, value);
     },
   };
 };
@@ -50,18 +50,18 @@ const createWebStorageDriver = (kind: WebStorageKind): StorageDriver => {
         return null;
       }
     },
-    setItem(key, value) {
-      try {
-        storage.setItem(key, value);
-      } catch {
-        // ignore quota/security errors
-      }
-    },
     removeItem(key) {
       try {
         storage.removeItem(key);
       } catch {
         // ignore
+      }
+    },
+    setItem(key, value) {
+      try {
+        storage.setItem(key, value);
+      } catch {
+        // ignore quota/security errors
       }
     },
   };

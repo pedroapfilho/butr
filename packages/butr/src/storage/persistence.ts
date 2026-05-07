@@ -6,28 +6,28 @@ type MaybePromise<T> = T | Promise<T>;
  *  async on React Native (AsyncStorage). */
 type StorageDriver = {
   getItem: (key: string) => MaybePromise<string | null>;
-  setItem: (key: string, value: string) => MaybePromise<void>;
   removeItem: (key: string) => MaybePromise<void>;
+  setItem: (key: string, value: string) => MaybePromise<void>;
 };
 
 type StoredWalletData = {
-  connectorId: string;
   account: Account;
+  connectorId: string;
 };
 
 type ConnectedWalletsRecord = Partial<Record<string, StoredWalletData>>;
 
 type WalletPersistence = {
-  getConnectedWallets(): Promise<ConnectedWalletsRecord>;
-  setConnectedWallets(wallets: Map<ChainPlatform, ConnectedWallet>): Promise<void>;
-  removeConnectedWallet(chainPlatform: ChainPlatform): Promise<void>;
-  clearConnectedWallets(): Promise<void>;
   clearAll(): Promise<void>;
-  getWalletMode(): Promise<WalletMode>;
-  setWalletMode(mode: WalletMode): Promise<void>;
+  clearConnectedWallets(): Promise<void>;
   clearWalletMode(): Promise<void>;
+  getConnectedWallets(): Promise<ConnectedWalletsRecord>;
+  getWalletMode(): Promise<WalletMode>;
   isUserDisconnected(): Promise<boolean>;
   markUserDisconnected(value: boolean): Promise<void>;
+  removeConnectedWallet(chainPlatform: ChainPlatform): Promise<void>;
+  setConnectedWallets(wallets: Map<ChainPlatform, ConnectedWallet>): Promise<void>;
+  setWalletMode(mode: WalletMode): Promise<void>;
 };
 
 export type {

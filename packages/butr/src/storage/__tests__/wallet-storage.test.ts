@@ -14,9 +14,9 @@ const createStorage = (overrides?: { persistent?: StorageDriver; session?: Stora
   const persistent = overrides?.persistent ?? createMockStorageDriver();
   const session = overrides?.session ?? createMockStorageDriver();
   return {
-    storage: new WalletStorage({ keyPrefix: "test", persistent, session }),
     persistent,
     session,
+    storage: new WalletStorage({ keyPrefix: "test", persistent, session }),
   };
 };
 
@@ -31,7 +31,6 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         evm: {
-          connectorId: "metamask",
           account: {
             walletAddress: "0x123",
             id: "acc-1",
@@ -42,6 +41,7 @@ describe("WalletStorage", () => {
               name: "Ethereum",
             },
           },
+          connectorId: "metamask",
         },
       };
       await persistent.setItem("test-connected-wallets", JSON.stringify(data));
@@ -63,7 +63,6 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         cosmos: {
-          connectorId: "keplr",
           account: {
             walletAddress: "cosmos1abc",
             id: "acc-1",
@@ -74,6 +73,7 @@ describe("WalletStorage", () => {
               name: "Cosmos",
             },
           },
+          connectorId: "keplr",
         },
       };
       await persistent.setItem("test-connected-wallets", JSON.stringify(data));
@@ -87,14 +87,14 @@ describe("WalletStorage", () => {
       const data = {
         evm: {
           account: {
-            walletAddress: "0x123",
-            id: "acc-1",
             chain: {
               id: "eip155:1",
               namespace: "eip155",
               reference: "1",
               name: "Ethereum",
             },
+            id: "acc-1",
+            walletAddress: "0x123",
           },
         },
       };
@@ -108,7 +108,6 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         evm: {
-          connectorId: "metamask",
           account: {
             id: "acc-1",
             chain: {
@@ -118,6 +117,7 @@ describe("WalletStorage", () => {
               name: "Ethereum",
             },
           },
+          connectorId: "metamask",
         },
       };
       await persistent.setItem("test-connected-wallets", JSON.stringify(data));
@@ -130,8 +130,8 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         evm: {
-          connectorId: "metamask",
           account: { walletAddress: "0x123", id: "acc-1" },
+          connectorId: "metamask",
         },
       };
       await persistent.setItem("test-connected-wallets", JSON.stringify(data));
@@ -152,10 +152,10 @@ describe("WalletStorage", () => {
 
   describe("setConnectedWallets", () => {
     it("serializes a Map of ConnectedWallet to JSON", async () => {
-      const { storage, persistent } = createStorage();
+      const { persistent, storage } = createStorage();
       const account = createMockAccount();
       const connector = createMockConnector({ id: "metamask" });
-      const wallets = new Map<ChainPlatform, ConnectedWallet>([["evm", { connector, account }]]);
+      const wallets = new Map<ChainPlatform, ConnectedWallet>([["evm", { account, connector }]]);
 
       await storage.setConnectedWallets(wallets);
 
@@ -165,7 +165,7 @@ describe("WalletStorage", () => {
     });
 
     it("handles empty map", async () => {
-      const { storage, persistent } = createStorage();
+      const { persistent, storage } = createStorage();
       await storage.setConnectedWallets(new Map());
 
       const stored = JSON.parse((await persistent.getItem("test-connected-wallets")) as string);
@@ -178,7 +178,6 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         evm: {
-          connectorId: "metamask",
           account: {
             walletAddress: "0x123",
             id: "acc-1",
@@ -189,9 +188,9 @@ describe("WalletStorage", () => {
               name: "Ethereum",
             },
           },
+          connectorId: "metamask",
         },
         svm: {
-          connectorId: "phantom",
           account: {
             walletAddress: "So1ana",
             id: "acc-2",
@@ -202,6 +201,7 @@ describe("WalletStorage", () => {
               name: "Solana",
             },
           },
+          connectorId: "phantom",
         },
       };
       await persistent.setItem("test-connected-wallets", JSON.stringify(data));
@@ -228,7 +228,7 @@ describe("WalletStorage", () => {
 
   describe("clearAll", () => {
     it("removes both connected-wallets and wallet-mode keys", async () => {
-      const { storage, persistent } = createStorage();
+      const { persistent, storage } = createStorage();
       await storage.setWalletMode("smart-wallet");
       await storage.setConnectedWallets(new Map());
 
@@ -268,7 +268,7 @@ describe("WalletStorage", () => {
     });
 
     it("sets and retrieves disconnect intent via session driver", async () => {
-      const { storage, session } = createStorage();
+      const { session, storage } = createStorage();
       await storage.markUserDisconnected(true);
 
       expect(await storage.isUserDisconnected()).toBe(true);
@@ -276,7 +276,7 @@ describe("WalletStorage", () => {
     });
 
     it("clears disconnect intent", async () => {
-      const { storage, session } = createStorage();
+      const { session, storage } = createStorage();
       await storage.markUserDisconnected(true);
       await storage.markUserDisconnected(false);
 
@@ -313,7 +313,7 @@ describe("WalletStorage", () => {
 
       const account = createMockAccount();
       const connector = createMockConnector({ id: "metamask" });
-      const wallets = new Map<ChainPlatform, ConnectedWallet>([["evm", { connector, account }]]);
+      const wallets = new Map<ChainPlatform, ConnectedWallet>([["evm", { account, connector }]]);
       await storage.setConnectedWallets(wallets);
 
       const restored = await storage.getConnectedWallets();
