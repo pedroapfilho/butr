@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "start": "portless run --https demo-vite.butr -- vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src",
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {

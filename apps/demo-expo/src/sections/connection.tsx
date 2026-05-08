@@ -19,7 +19,7 @@ import {
 const Btn = ({ label, onPress }: { label: string; onPress: () => void }) => (
   <Pressable
     onPress={onPress}
-    style={{ padding: 8, backgroundColor: "#eee", borderRadius: 4, margin: 4 }}
+    style={{ backgroundColor: "#eee", borderRadius: 4, margin: 4, padding: 8 }}
   >
     <Text>{label}</Text>
   </Pressable>
@@ -42,13 +42,17 @@ const ConnectionSection = () => {
   const resetStatus = useResetConnectionStatus();
 
   const cycleStatus = () => {
-    const next: ConnectionStatus =
-      status === "idle" ? "connecting" : status === "connecting" ? "success" : "idle";
+    let next: ConnectionStatus = "idle";
+    if (status === "idle") {
+      next = "connecting";
+    } else if (status === "connecting") {
+      next = "success";
+    }
     setStatus(next, activeId);
   };
 
   return (
-    <View style={{ padding: 16, borderBottomWidth: 1, borderColor: "#ddd" }}>
+    <View style={{ borderBottomWidth: 1, borderColor: "#ddd", padding: 16 }}>
       <Text style={{ fontSize: 18, fontWeight: "600" }}>Connection</Text>
       <Text>
         status: {status}

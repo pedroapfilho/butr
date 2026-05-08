@@ -11,6 +11,7 @@
     "web": "expo start --web",
     "build": "expo export --platform web",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint app src",
     "clean": "rm -rf .expo node_modules dist"
   },
   "dependencies": {

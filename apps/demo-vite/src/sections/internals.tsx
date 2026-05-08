@@ -1,11 +1,11 @@
 import { useGetConnectorInstance, useWalletStore, type WalletStoreState } from "butr";
 
 const pickSnapshot = (state: WalletStoreState) => ({
-  connectionStatus: state.connectionStatus,
-  walletMode: state.walletMode,
   activeConnectorId: state.activeConnectorId,
-  walletCount: state.wallets.length,
+  connectionStatus: state.connectionStatus,
   isHydrated: state.isHydrated,
+  walletCount: state.wallets.length,
+  walletMode: state.walletMode,
 });
 
 const InternalsSection = () => {
@@ -20,7 +20,7 @@ const InternalsSection = () => {
         mock-evm connector instance: {evmConnector?.name ?? "null"} (
         {evmConnector?.chainPlatform ?? "—"})
       </p>
-      <pre style={{ background: "#f6f6f6", padding: 8, borderRadius: 4 }}>
+      <pre style={{ background: "#f6f6f6", borderRadius: 4, padding: 8 }}>
         {JSON.stringify(snapshot, null, 2)}
       </pre>
     </section>

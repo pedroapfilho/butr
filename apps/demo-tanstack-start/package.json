@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint src",
     "clean": "rm -rf .vinxi .output dist node_modules"
   },
   "dependencies": {

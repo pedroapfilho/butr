@@ -6,7 +6,7 @@ import { ModeSection } from "../sections/mode";
 import { WalletsSection } from "../sections/wallets";
 
 const Page = () => (
-  <main style={{ fontFamily: "system-ui, sans-serif", maxWidth: 720, margin: "0 auto" }}>
+  <main style={{ fontFamily: "system-ui, sans-serif", margin: "0 auto", maxWidth: 720 }}>
     <header style={{ padding: 16 }}>
       <h1>butr · Next.js</h1>
     </header>

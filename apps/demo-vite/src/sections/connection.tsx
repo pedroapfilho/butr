@@ -32,13 +32,17 @@ const ConnectionSection = () => {
   const resetStatus = useResetConnectionStatus();
 
   const cycleStatus = () => {
-    const next: ConnectionStatus =
-      status === "idle" ? "connecting" : status === "connecting" ? "success" : "idle";
+    let next: ConnectionStatus = "idle";
+    if (status === "idle") {
+      next = "connecting";
+    } else if (status === "connecting") {
+      next = "success";
+    }
     setStatus(next, activeId);
   };
 
   return (
-    <section style={{ padding: 16, borderBottom: "1px solid #ddd" }}>
+    <section style={{ borderBottom: "1px solid #ddd", padding: 16 }}>
       <h2>Connection</h2>
       <ul>
         <li>
@@ -49,14 +53,28 @@ const ConnectionSection = () => {
         <li>error: {error ?? "none"}</li>
         <li>user disconnected flag: {String(isUserDisconnected)}</li>
       </ul>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={() => connect("mock-evm")}>Connect EVM</button>
-        <button onClick={() => connectOIDC("mock-oidc")}>Connect OIDC</button>
-        <button onClick={() => disconnect("evm")}>Disconnect EVM</button>
-        <button onClick={() => refresh("evm")}>Refresh EVM</button>
-        <button onClick={() => reset()}>Reset</button>
-        <button onClick={cycleStatus}>Cycle status</button>
-        <button onClick={resetStatus}>Reset status</button>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <button onClick={() => connect("mock-evm")} type="button">
+          Connect EVM
+        </button>
+        <button onClick={() => connectOIDC("mock-oidc")} type="button">
+          Connect OIDC
+        </button>
+        <button onClick={() => disconnect("evm")} type="button">
+          Disconnect EVM
+        </button>
+        <button onClick={() => refresh("evm")} type="button">
+          Refresh EVM
+        </button>
+        <button onClick={() => reset()} type="button">
+          Reset
+        </button>
+        <button onClick={cycleStatus} type="button">
+          Cycle status
+        </button>
+        <button onClick={resetStatus} type="button">
+          Reset status
+        </button>
       </div>
     </section>
   );

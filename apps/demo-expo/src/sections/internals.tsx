@@ -2,11 +2,11 @@ import { Text, View } from "react-native";
 import { useGetConnectorInstance, useWalletStore, type WalletStoreState } from "butr";
 
 const pickSnapshot = (state: WalletStoreState) => ({
-  connectionStatus: state.connectionStatus,
-  walletMode: state.walletMode,
   activeConnectorId: state.activeConnectorId,
-  walletCount: state.wallets.length,
+  connectionStatus: state.connectionStatus,
   isHydrated: state.isHydrated,
+  walletCount: state.wallets.length,
+  walletMode: state.walletMode,
 });
 
 const InternalsSection = () => {
@@ -20,7 +20,7 @@ const InternalsSection = () => {
       <Text>
         mock-evm: {evmConnector?.name ?? "null"} ({evmConnector?.chainPlatform ?? "—"})
       </Text>
-      <View style={{ backgroundColor: "#f6f6f6", padding: 8, borderRadius: 4, marginTop: 8 }}>
+      <View style={{ backgroundColor: "#f6f6f6", borderRadius: 4, marginTop: 8, padding: 8 }}>
         <Text style={{ fontFamily: "monospace" }}>{JSON.stringify(snapshot, null, 2)}</Text>
       </View>
     </View>

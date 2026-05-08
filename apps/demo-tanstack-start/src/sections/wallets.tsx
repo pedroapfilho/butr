@@ -16,9 +16,9 @@ import {
 
 const ROTATING_CHAIN: ChainBase = {
   id: "eip155:1",
+  name: "Ethereum",
   namespace: "eip155",
   reference: "1",
-  name: "Ethereum",
 };
 
 const formatWallet = (w: ConnectedWallet | undefined) =>
@@ -39,14 +39,14 @@ const WalletsSection = () => {
   const rotateAccount = () => {
     const next: Account = {
       chain: ROTATING_CHAIN,
-      walletAddress: `0x${Date.now().toString(16).padStart(40, "0")}`.slice(0, 42),
       id: `evm:${Date.now()}`,
+      walletAddress: `0x${Date.now().toString(16).padStart(40, "0")}`.slice(0, 42),
     };
     updateAccount("evm", next);
   };
 
   return (
-    <section style={{ padding: 16, borderBottom: "1px solid #ddd" }}>
+    <section style={{ borderBottom: "1px solid #ddd", padding: 16 }}>
       <h2>Wallets</h2>
       <ul>
         <li>has any: {String(hasAny)}</li>
@@ -59,9 +59,11 @@ const WalletsSection = () => {
         <li>for operation (evm): {formatWallet(getForOperation("evm"))}</li>
         <li>reactive evm: {formatWallet(reactiveWallet)}</li>
         <li>map size: {map.size}</li>
-        <li>map-by-platform keys: {Array.from(mapByPlatform.keys()).join(", ") || "none"}</li>
+        <li>map-by-platform keys: {[...mapByPlatform.keys()].join(", ") || "none"}</li>
       </ul>
-      <button onClick={rotateAccount}>Rotate active EVM account</button>
+      <button onClick={rotateAccount} type="button">
+        Rotate active EVM account
+      </button>
     </section>
   );
 };

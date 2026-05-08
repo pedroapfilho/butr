@@ -5,12 +5,12 @@ import { useWalletMode } from "butr";
 const ModeSection = () => {
   const mode = useWalletMode();
   return (
-    <section style={{ padding: 16, borderBottom: "1px solid #ddd" }}>
+    <section style={{ borderBottom: "1px solid #ddd", padding: 16 }}>
       <h2>Mode</h2>
       <p>
         current: <strong>{mode}</strong>
       </p>
-      <p style={{ fontSize: 12, color: "#666" }}>
+      <p style={{ color: "#666", fontSize: 12 }}>
         Mode is derived from connector type (smart vs external). Connect a wallet above to change
         it.
       </p>

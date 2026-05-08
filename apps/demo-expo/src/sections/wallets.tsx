@@ -17,9 +17,9 @@ import {
 
 const ROTATING_CHAIN: ChainBase = {
   id: "eip155:1",
+  name: "Ethereum",
   namespace: "eip155",
   reference: "1",
-  name: "Ethereum",
 };
 
 const formatWallet = (w: ConnectedWallet | undefined) =>
@@ -40,14 +40,14 @@ const WalletsSection = () => {
   const rotateAccount = () => {
     const next: Account = {
       chain: ROTATING_CHAIN,
-      walletAddress: `0x${Date.now().toString(16).padStart(40, "0")}`.slice(0, 42),
       id: `evm:${Date.now()}`,
+      walletAddress: `0x${Date.now().toString(16).padStart(40, "0")}`.slice(0, 42),
     };
     updateAccount("evm", next);
   };
 
   return (
-    <View style={{ padding: 16, borderBottomWidth: 1, borderColor: "#ddd" }}>
+    <View style={{ borderBottomWidth: 1, borderColor: "#ddd", padding: 16 }}>
       <Text style={{ fontSize: 18, fontWeight: "600" }}>Wallets</Text>
       <Text>has any: {String(hasAny)}</Text>
       <Text>is evm connected: {String(isWalletConnected("evm"))}</Text>
@@ -59,15 +59,15 @@ const WalletsSection = () => {
       <Text>for operation (evm): {formatWallet(getForOperation("evm"))}</Text>
       <Text>reactive evm: {formatWallet(reactiveWallet)}</Text>
       <Text>map size: {map.size}</Text>
-      <Text>map-by-platform keys: {Array.from(mapByPlatform.keys()).join(", ") || "none"}</Text>
+      <Text>map-by-platform keys: {[...mapByPlatform.keys()].join(", ") || "none"}</Text>
       <Pressable
         onPress={rotateAccount}
         style={{
-          padding: 8,
+          alignSelf: "flex-start",
           backgroundColor: "#eee",
           borderRadius: 4,
           marginTop: 8,
-          alignSelf: "flex-start",
+          padding: 8,
         }}
       >
         <Text>Rotate active EVM account</Text>
