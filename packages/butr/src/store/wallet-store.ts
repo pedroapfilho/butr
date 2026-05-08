@@ -1,93 +1,22 @@
 import { createStore } from "zustand/vanilla";
 import { devtools } from "zustand/middleware";
-import type {
-  Account,
-  ChainPlatform,
-  ConnectedWallet,
-  UIConnector,
-  WalletManagerConfig,
-  WalletMode,
-} from "../types";
-import { type WalletPersistence, WalletStorage } from "../storage";
-
-/** Connection status for wallet connection flows */
-type ConnectionStatus = "idle" | "connecting" | "success" | "error";
+import type { ChainPlatform, ConnectedWallet, WalletManagerConfig, WalletMode } from "../types";
+import { WalletStorage } from "../storage";
+import {
+  hydrateFromStorage,
+  isProduction,
+  logStorageError,
+  resolveTargetKey,
+  run,
+} from "./wallet-store-helpers";
+import type { InternalWalletState } from "./wallet-store-helpers";
 
 const CONNECT_TIMEOUT_MS = 90_000;
-
-/** Public state and methods exposed to components */
-type WalletState = {
-  activeConnectorId: string | null;
-  connected: boolean;
-  // Public State
-  connectedWallets: Map<ChainPlatform, ConnectedWallet>;
-  connecting: boolean;
-  connectionError: string | null;
-  // Connection status tracking (for UI coordination)
-  connectionStatus: ConnectionStatus;
-  connectOIDCWallet: (
-    id: string,
-    onSuccess?: (wallet: ConnectedWallet) => void,
-    onError?: (error: Error) => void,
-  ) => Promise<void>;
-  // Public Actions
-  connectWallet: (
-    id: string,
-    onSuccess?: (wallet: ConnectedWallet) => void,
-    onError?: (error: Error) => void,
-  ) => Promise<void>;
-
-  disconnectWallet: (chainPlatform: ChainPlatform) => void;
-  getConnectorInstance: (id: string) => UIConnector | null;
-  getWalletByPlatform: (chainPlatform: ChainPlatform) => ConnectedWallet | undefined;
-
-  getWalletForOperation: (chainPlatform: ChainPlatform) => ConnectedWallet | undefined;
-  hasAnyWallet: boolean;
-  isHydrated: boolean;
-  /** Reactive mirror of the session-scoped disconnect-intent flag. */
-  isUserDisconnected: boolean;
-  isWalletConnected: (chainPlatform: ChainPlatform) => boolean;
-  refreshWallet: (chainPlatform: ChainPlatform) => void;
-  reset: () => void;
-  resetConnectionStatus: () => void;
-  setConnectionError: (error: string | null) => void;
-  // Connection status actions
-  setConnectionStatus: (status: ConnectionStatus, connectorId?: string | null) => void;
-
-  updateWalletAccount: (chainPlatform: ChainPlatform, newAccount: Account) => void;
-  walletMode: WalletMode;
-  wallets: ConnectedWallet[];
-};
-
-/** Internal state including private methods and config */
-type InternalWalletState = WalletState & {
-  _config: WalletManagerConfig;
-  _hydrateWallets: () => Promise<void>;
-
-  _markUserDisconnected: (value: boolean) => void;
-  _persistConnectedWallets: (wallets: Map<ChainPlatform, ConnectedWallet>) => void;
-  _setWalletMode: (mode: WalletMode) => void;
-  _storage: WalletPersistence;
-  _updateDerivedState: () => void;
-};
 
 type ExtractState<S> = S extends { getState: () => infer T } ? T : never;
 
 type WalletStore = ReturnType<typeof createWalletStore>;
 type WalletStoreState = ExtractState<WalletStore>;
-
-const logStorageError = (context: string) => (error: unknown) => {
-  console.warn(`[butr] ${context}:`, error);
-};
-
-const isProduction = (): boolean => {
-  try {
-    const proc = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
-    return proc?.env?.NODE_ENV === "production";
-  } catch {
-    return false;
-  }
-};
 
 const createWalletStore = (config: WalletManagerConfig) => {
   const storageKeyPrefix = config.storageKeyPrefix || "butr";
@@ -114,124 +43,59 @@ const createWalletStore = (config: WalletManagerConfig) => {
         // Connection status tracking
         _config: config,
         _hydrateWallets: async () => {
-          const [stored, persistedMode, userDisconnected] = await Promise.all([
-            storage.getConnectedWallets(),
-            storage.getWalletMode(),
-            storage.isUserDisconnected(),
-          ]);
-          const walletsMap = new Map<ChainPlatform, ConnectedWallet>();
+          const result = await hydrateFromStorage(storage, config.createConnector);
 
-          let hasSmartWallet = false;
-          let hasExternalWallet = false;
-
-          for (const [platform, walletData] of Object.entries(stored)) {
-            if (
-              typeof walletData === "object" &&
-              "connectorId" in walletData &&
-              "account" in walletData &&
-              typeof walletData.connectorId === "string"
-            ) {
-              const connector = config.createConnector(walletData.connectorId);
-              if (connector) {
-                // Skip hydration for OIDC-based connectors (like Privy).
-                // They have their own session restoration flow.
-                if (connector.isOIDCBased) {
-                  await storage
-                    .removeConnectedWallet(platform as ChainPlatform)
-                    .catch(logStorageError("failed to remove OIDC entry"));
-                  continue;
-                }
-
-                try {
-                  await connector.connect();
-                  const freshAccount = await connector.getAccount();
-                  const accountToUse = freshAccount || walletData.account;
-
-                  walletsMap.set(platform as ChainPlatform, {
-                    connector,
-                    account: accountToUse,
-                  });
-
-                  if (connector.isSmartWallet) {
-                    hasSmartWallet = true;
-                  } else {
-                    hasExternalWallet = true;
-                  }
-                } catch (error) {
-                  console.warn(
-                    `[butr] failed to restore connector ${walletData.connectorId}:`,
-                    error,
-                  );
-                  await storage
-                    .removeConnectedWallet(platform as ChainPlatform)
-                    .catch(logStorageError("failed to remove broken entry"));
-                }
-              } else {
-                console.warn(`[butr] could not instantiate connector ${walletData.connectorId}`);
-              }
-            } else {
-              console.warn(`[butr] validation failed for ${platform}, walletData:`, { walletData });
-            }
-          }
-
-          // Determine wallet mode
-          let newWalletMode: WalletMode = "none";
-          if (hasSmartWallet && !hasExternalWallet) {
-            newWalletMode = "smart-wallet";
-          } else if (hasExternalWallet && !hasSmartWallet) {
-            newWalletMode = "external-wallet";
-          } else if (walletsMap.size === 0) {
-            newWalletMode = persistedMode;
-          }
-          void storage
-            .setWalletMode(newWalletMode)
-            .catch(logStorageError("failed to persist wallet mode"));
-
-          const wallets = Array.from(walletsMap.values());
-          const hasAnyWallet = walletsMap.size > 0;
-          const connected = hasAnyWallet;
+          void run(
+            () => storage.setWalletMode(result.walletMode),
+            logStorageError("failed to persist wallet mode"),
+          );
 
           set(
             {
-              connectedWallets: walletsMap,
-              wallets,
-              hasAnyWallet,
-              walletMode: newWalletMode,
+              connected: result.connected,
+              connectedWallets: result.connectedWallets,
               connecting: false,
-              connected,
+              hasAnyWallet: result.hasAnyWallet,
               isHydrated: true,
-              isUserDisconnected: userDisconnected,
+              isUserDisconnected: result.isUserDisconnected,
+              walletMode: result.walletMode,
+              wallets: result.wallets,
             },
             false,
           );
         },
         _markUserDisconnected: (value: boolean) => {
           set({ isUserDisconnected: value }, false);
-          void storage
-            .markUserDisconnected(value)
-            .catch(logStorageError("failed to persist disconnect intent"));
+          void run(
+            () => storage.markUserDisconnected(value),
+            logStorageError("failed to persist disconnect intent"),
+          );
         },
 
         _persistConnectedWallets: (wallets: Map<ChainPlatform, ConnectedWallet>) => {
-          void storage
-            .setConnectedWallets(wallets)
-            .catch(logStorageError("failed to persist wallets"));
+          void run(
+            () => storage.setConnectedWallets(wallets),
+            logStorageError("failed to persist wallets"),
+          );
         },
         _setWalletMode: (mode: WalletMode) => {
           set({ walletMode: mode }, false);
-          void storage.setWalletMode(mode).catch(logStorageError("failed to persist wallet mode"));
+          void run(
+            () => storage.setWalletMode(mode),
+            logStorageError("failed to persist wallet mode"),
+          );
         },
 
         _storage: storage,
 
         _updateDerivedState: () => {
-          const state = get();
-          const wallets = Array.from(state.connectedWallets.values());
-          const hasAnyWallet = state.connectedWallets.size > 0;
+          const currentState = get();
+          const wallets = [...currentState.connectedWallets.values()];
+          const hasAnyWallet = currentState.connectedWallets.size > 0;
           const connecting = false;
           const connected = hasAnyWallet;
 
-          set({ wallets, hasAnyWallet, connecting, connected }, false);
+          set({ connected, connecting, hasAnyWallet, wallets }, false);
         },
 
         activeConnectorId: null,
@@ -247,17 +111,19 @@ const createWalletStore = (config: WalletManagerConfig) => {
           }
 
           const connector = config.createConnector(id);
-          if (!connector) throw new Error(`Failed to create connector for ${id}`);
+          if (!connector) {
+            throw new Error(`Failed to create connector for ${id}`);
+          }
 
           if (connector.isSmartWallet && state.walletMode === "external-wallet") {
-            const platformsToDisconnect = Array.from(state.connectedWallets.keys());
+            const platformsToDisconnect = [...state.connectedWallets.keys()];
             for (const platform of platformsToDisconnect) {
               state.disconnectWallet(platform);
             }
           }
 
           if (!connector.isSmartWallet && state.walletMode === "smart-wallet") {
-            const platformsToDisconnect = Array.from(state.connectedWallets.keys());
+            const platformsToDisconnect = [...state.connectedWallets.keys()];
             for (const platform of platformsToDisconnect) {
               state.disconnectWallet(platform);
             }
@@ -269,40 +135,43 @@ const createWalletStore = (config: WalletManagerConfig) => {
         connectWallet: async (id, onSuccess, onError) => {
           get()._markUserDisconnected(false);
 
-          const state = get();
+          const walletState = get();
           const connector = config.createConnector(id);
-          if (!connector) throw new Error(`Failed to create connector for ${id}`);
+          if (!connector) {
+            throw new Error(`Failed to create connector for ${id}`);
+          }
 
           const isSmartWallet = connector.isSmartWallet === true;
           const isExternalWallet = !isSmartWallet;
 
           // Auto-disconnect incompatible wallets
-          if (isSmartWallet && state.walletMode === "external-wallet") {
-            const platformsToDisconnect = Array.from(state.connectedWallets.keys());
+          if (isSmartWallet && walletState.walletMode === "external-wallet") {
+            const platformsToDisconnect = [...walletState.connectedWallets.keys()];
             for (const platform of platformsToDisconnect) {
-              state.disconnectWallet(platform);
+              walletState.disconnectWallet(platform);
             }
           }
 
-          if (isExternalWallet && state.walletMode === "smart-wallet") {
-            const platformsToDisconnect = Array.from(state.connectedWallets.keys());
+          if (isExternalWallet && walletState.walletMode === "smart-wallet") {
+            const platformsToDisconnect = [...walletState.connectedWallets.keys()];
             for (const platform of platformsToDisconnect) {
-              state.disconnectWallet(platform);
+              walletState.disconnectWallet(platform);
             }
           }
 
           set(
             {
-              connectionStatus: "connecting",
               activeConnectorId: id,
               connectionError: null,
+              connectionStatus: "connecting",
             },
             false,
           );
 
           try {
             const connectPromise = connector.connect();
-            connectPromise.catch(() => {});
+            // oxlint-disable-next-line promise/prefer-await-to-then -- suppress unhandled rejection; we await via Promise.race below
+            void connectPromise.catch(() => {});
             await Promise.race([
               connectPromise,
               new Promise((_, reject) => {
@@ -312,12 +181,14 @@ const createWalletStore = (config: WalletManagerConfig) => {
               }),
             ]);
             const account = await connector.getAccount();
-            if (!account) throw new Error("Failed to get account");
+            if (!account) {
+              throw new Error("Failed to get account");
+            }
 
-            const connectedWallet: ConnectedWallet = { connector, account };
+            const connectedWallet: ConnectedWallet = { account, connector };
 
-            set((state) => {
-              const existingWallet = state.connectedWallets.get(connector.chainPlatform);
+            set((prev) => {
+              const existingWallet = prev.connectedWallets.get(connector.chainPlatform);
               if (
                 existingWallet &&
                 existingWallet.account.walletAddress.toLowerCase() ===
@@ -328,28 +199,30 @@ const createWalletStore = (config: WalletManagerConfig) => {
                 };
               }
 
-              const newWallets = new Map(state.connectedWallets);
-              newWallets.set(connector.chainPlatform, connectedWallet);
+              const newWallets = new Map([
+                ...prev.connectedWallets,
+                [connector.chainPlatform, connectedWallet],
+              ]);
 
-              const wallets = Array.from(newWallets.values());
+              const wallets = [...newWallets.values()];
               const hasAnyWallet = newWallets.size > 0;
 
               return {
-                connectedWallets: newWallets,
-                wallets,
-                hasAnyWallet,
-                connecting: false,
                 connected: hasAnyWallet,
+                connectedWallets: newWallets,
+                connecting: false,
                 connectionStatus: "success" as const,
+                hasAnyWallet,
+                wallets,
               };
             }, false);
 
             const updatedWallets = get().connectedWallets;
             get()._persistConnectedWallets(updatedWallets);
 
-            if (isSmartWallet && state.walletMode !== "smart-wallet") {
+            if (isSmartWallet && walletState.walletMode !== "smart-wallet") {
               get()._setWalletMode("smart-wallet");
-            } else if (isExternalWallet && state.walletMode !== "external-wallet") {
+            } else if (isExternalWallet && walletState.walletMode !== "external-wallet") {
               get()._setWalletMode("external-wallet");
             }
 
@@ -357,10 +230,12 @@ const createWalletStore = (config: WalletManagerConfig) => {
             onSuccess?.(connectedWallet);
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Connection failed";
-            set({ connectionStatus: "error", connectionError: errorMessage }, false);
-            await connector.disconnect?.().catch((e: unknown) => {
-              console.warn("[butr] disconnect during error recovery failed:", e);
-            });
+            set({ connectionError: errorMessage, connectionStatus: "error" }, false);
+            try {
+              await connector.disconnect?.();
+            } catch (disconnectError: unknown) {
+              console.warn("[butr] disconnect during error recovery failed:", disconnectError);
+            }
             onError?.(error as Error);
             throw error;
           }
@@ -369,42 +244,42 @@ const createWalletStore = (config: WalletManagerConfig) => {
         disconnectWallet: (chainPlatform) => {
           get()._markUserDisconnected(true);
 
-          const state = get();
-          if (!state.isHydrated) return;
-
-          const targetKey = state.connectedWallets.has(chainPlatform)
-            ? chainPlatform
-            : chainPlatform === "evm" || chainPlatform === "svm"
-              ? ("unified" as ChainPlatform)
-              : undefined;
-
-          if (!targetKey) return;
-
-          const wallet = state.connectedWallets.get(targetKey);
-          if (wallet) {
-            wallet.connector.disconnect?.().catch(console.error);
+          const disconnectState = get();
+          if (!disconnectState.isHydrated) {
+            return;
           }
 
-          set((state) => {
-            const newWallets = new Map(state.connectedWallets);
+          const targetKey = resolveTargetKey(disconnectState.connectedWallets, chainPlatform);
+
+          if (!targetKey) {
+            return;
+          }
+
+          const wallet = disconnectState.connectedWallets.get(targetKey);
+          if (wallet) {
+            void run(() => wallet.connector.disconnect?.() ?? Promise.resolve(), console.error);
+          }
+
+          set((prev) => {
+            const newWallets = new Map(prev.connectedWallets);
             newWallets.delete(targetKey);
 
-            const wallets = Array.from(newWallets.values());
+            const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;
-            const walletMode = newWallets.size === 0 ? "none" : state.walletMode;
+            const walletMode = newWallets.size === 0 ? "none" : prev.walletMode;
 
             return {
+              connected: hasAnyWallet,
               connectedWallets: newWallets,
-              wallets,
+              connecting: false,
               hasAnyWallet,
               walletMode,
-              connecting: false,
-              connected: hasAnyWallet,
+              wallets,
             };
           }, false);
 
           if (get().connectedWallets.size === 0) {
-            void storage.clearAll().catch(logStorageError("failed to clear storage"));
+            void run(() => storage.clearAll(), logStorageError("failed to clear storage"));
           } else {
             get()._persistConnectedWallets(get().connectedWallets);
           }
@@ -419,14 +294,18 @@ const createWalletStore = (config: WalletManagerConfig) => {
         getWalletByPlatform: (chainPlatform) => {
           const state = get();
           const directWallet = state.connectedWallets.get(chainPlatform);
-          if (directWallet) return directWallet;
+          if (directWallet) {
+            return directWallet;
+          }
 
           if (chainPlatform === "unified") {
             return state.connectedWallets.get("unified");
           }
 
           const unifiedWallet = state.connectedWallets.get("unified");
-          if (!unifiedWallet) return undefined;
+          if (!unifiedWallet) {
+            return undefined;
+          }
 
           if (chainPlatform === "evm" || chainPlatform === "svm") {
             const resolvedAccount =
@@ -465,30 +344,29 @@ const createWalletStore = (config: WalletManagerConfig) => {
         },
 
         refreshWallet: (chainPlatform) => {
-          set((state) => {
-            const targetKey = state.connectedWallets.has(chainPlatform)
-              ? chainPlatform
-              : chainPlatform === "evm" || chainPlatform === "svm"
-                ? ("unified" as ChainPlatform)
-                : undefined;
+          set((prev) => {
+            const targetKey = resolveTargetKey(prev.connectedWallets, chainPlatform);
 
-            if (!targetKey) return state;
+            if (!targetKey) {
+              return prev;
+            }
 
-            const wallet = state.connectedWallets.get(targetKey);
-            if (!wallet) return state;
+            const wallet = prev.connectedWallets.get(targetKey);
+            if (!wallet) {
+              return prev;
+            }
 
-            const newWallets = new Map(state.connectedWallets);
-            newWallets.set(targetKey, { ...wallet });
+            const newWallets = new Map([...prev.connectedWallets, [targetKey, { ...wallet }]]);
 
-            const wallets = Array.from(newWallets.values());
+            const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;
 
             return {
-              connectedWallets: newWallets,
-              wallets,
-              hasAnyWallet,
-              connecting: false,
               connected: hasAnyWallet,
+              connectedWallets: newWallets,
+              connecting: false,
+              hasAnyWallet,
+              wallets,
             };
           }, false);
         },
@@ -496,31 +374,34 @@ const createWalletStore = (config: WalletManagerConfig) => {
         reset: () => {
           get()._markUserDisconnected(true);
 
-          const state = get();
-          if (!state.isHydrated) return;
-
-          for (const wallet of state.connectedWallets.values()) {
-            wallet.connector.disconnect?.().catch(console.error);
+          const resetState = get();
+          if (!resetState.isHydrated) {
+            return;
           }
 
-          void storage.clearAll().catch(logStorageError("failed to clear storage"));
+          for (const wallet of resetState.connectedWallets.values()) {
+            void run(() => wallet.connector.disconnect?.() ?? Promise.resolve(), console.error);
+          }
+
+          void run(() => storage.clearAll(), logStorageError("failed to clear storage"));
 
           // Fire the consumer-provided reset callback (e.g., clear auth tokens)
           if (config.onReset) {
-            Promise.resolve(config.onReset()).catch(console.error);
+            const onReset = config.onReset;
+            void run(() => Promise.resolve(onReset()), console.error);
           }
 
           set(
             {
+              activeConnectorId: null,
+              connected: false,
               connectedWallets: new Map(),
-              wallets: [],
+              connecting: false,
+              connectionError: null,
+              connectionStatus: "idle",
               hasAnyWallet: false,
               walletMode: "none",
-              connecting: false,
-              connected: false,
-              connectionStatus: "idle",
-              connectionError: null,
-              activeConnectorId: null,
+              wallets: [],
             },
             false,
           );
@@ -529,9 +410,9 @@ const createWalletStore = (config: WalletManagerConfig) => {
         resetConnectionStatus: () => {
           set(
             {
-              connectionStatus: "idle",
-              connectionError: null,
               activeConnectorId: null,
+              connectionError: null,
+              connectionStatus: "idle",
             },
             false,
           );
@@ -548,21 +429,21 @@ const createWalletStore = (config: WalletManagerConfig) => {
         },
 
         setConnectionStatus: (status, connectorId = null) => {
-          set({ connectionStatus: status, activeConnectorId: connectorId }, false);
+          set({ activeConnectorId: connectorId, connectionStatus: status }, false);
         },
 
         updateWalletAccount: (chainPlatform, newAccount) => {
-          set((state) => {
-            const targetKey = state.connectedWallets.has(chainPlatform)
-              ? chainPlatform
-              : chainPlatform === "evm" || chainPlatform === "svm"
-                ? ("unified" as ChainPlatform)
-                : undefined;
+          set((prev) => {
+            const targetKey = resolveTargetKey(prev.connectedWallets, chainPlatform);
 
-            if (!targetKey) return state;
+            if (!targetKey) {
+              return prev;
+            }
 
-            const wallet = state.connectedWallets.get(targetKey);
-            if (!wallet) return state;
+            const wallet = prev.connectedWallets.get(targetKey);
+            if (!wallet) {
+              return prev;
+            }
 
             // Skip update when the account hasn't actually changed.
             // Prevents unnecessary Map churn that cascades through
@@ -572,7 +453,7 @@ const createWalletStore = (config: WalletManagerConfig) => {
               wallet.account.walletAddress === newAccount.walletAddress &&
               wallet.account.chain.id === newAccount.chain.id
             ) {
-              return state;
+              return prev;
             }
 
             const updatedWallet: ConnectedWallet = {
@@ -580,18 +461,17 @@ const createWalletStore = (config: WalletManagerConfig) => {
               account: newAccount,
             };
 
-            const newWallets = new Map(state.connectedWallets);
-            newWallets.set(targetKey, updatedWallet);
+            const newWallets = new Map([...prev.connectedWallets, [targetKey, updatedWallet]]);
 
-            const wallets = Array.from(newWallets.values());
+            const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;
 
             return {
-              connectedWallets: newWallets,
-              wallets,
-              hasAnyWallet,
-              connecting: false,
               connected: hasAnyWallet,
+              connectedWallets: newWallets,
+              connecting: false,
+              hasAnyWallet,
+              wallets,
             };
           }, false);
 
@@ -603,5 +483,6 @@ const createWalletStore = (config: WalletManagerConfig) => {
   );
 };
 
-export type { ConnectionStatus, WalletStore, WalletStoreState };
+export type { ConnectionStatus } from "./wallet-store-helpers";
+export type { WalletStore, WalletStoreState };
 export { createWalletStore };

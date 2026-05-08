@@ -35,7 +35,9 @@ class WalletStorage implements WalletPersistence {
   }
 
   private isValidWalletData(data: unknown): data is ConnectedWalletsRecord {
-    if (!data || typeof data !== "object") return false;
+    if (!data || typeof data !== "object") {
+      return false;
+    }
 
     const record = data as Record<string, unknown>;
 
@@ -184,11 +186,9 @@ class WalletStorage implements WalletPersistence {
 
   async markUserDisconnected(value: boolean): Promise<void> {
     try {
-      if (value) {
-        await this.session.setItem(this.userDisconnectedKey, "true");
-      } else {
-        await this.session.removeItem(this.userDisconnectedKey);
-      }
+      await (value
+        ? this.session.setItem(this.userDisconnectedKey, "true")
+        : this.session.removeItem(this.userDisconnectedKey));
     } catch {
       // ignore
     }

@@ -13,7 +13,7 @@ const hasWebStorage = (kind: WebStorageKind): boolean => {
   try {
     return (
       typeof globalThis !== "undefined" &&
-      (globalThis as { [k: string]: unknown })[kind] !== undefined
+      (globalThis as Record<string, unknown>)[kind] !== undefined
     );
   } catch {
     return false;

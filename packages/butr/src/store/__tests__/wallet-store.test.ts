@@ -380,7 +380,7 @@ describe("createWalletStore", () => {
       expect(wallet?.connector.id).toBe("metamask");
     });
 
-    it("returns undefined for missing platform", async () => {
+    it("returns undefined for missing platform", () => {
       const { store } = createTestStore();
       expect(store.getState().getWalletByPlatform("svm")).toBeUndefined();
     });
@@ -542,7 +542,7 @@ describe("createWalletStore", () => {
       );
     });
 
-    it("is a no-op for missing platform", async () => {
+    it("is a no-op for missing platform", () => {
       const { store } = createTestStore();
       const newAccount = createMockAccount();
 

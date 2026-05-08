@@ -20,9 +20,13 @@ const WalletManagerProvider: React.FC<WalletManagerProviderProps> = ({ children,
     hasHydratedRef.current = true;
 
     const state = store.getState();
-    state._hydrateWallets().catch((error: unknown) => {
-      console.error("[butr] failed to hydrate wallets:", error);
-    });
+    void (async () => {
+      try {
+        await state._hydrateWallets();
+      } catch (error: unknown) {
+        console.error("[butr] failed to hydrate wallets:", error);
+      }
+    })();
   }, [store]);
 
   return <WalletStoreContext.Provider value={store}>{children}</WalletStoreContext.Provider>;

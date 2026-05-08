@@ -23,10 +23,10 @@ const createMockConnector = (overrides?: Partial<UIConnector>): UIConnector => (
   disconnect: vi.fn().mockResolvedValue(undefined),
   getAccount: vi.fn().mockResolvedValue(createMockAccount()),
   getBalance: vi.fn().mockResolvedValue({
-    value: BigInt(0),
     decimals: 18,
-    symbol: "ETH",
     formatted: "0",
+    symbol: "ETH",
+    value: 0n,
   }),
   getSigner: vi.fn().mockResolvedValue({}),
   getTransactionReceipt: vi.fn().mockResolvedValue({ status: "Success" as const }),

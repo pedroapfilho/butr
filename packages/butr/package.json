@@ -24,6 +24,7 @@
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:cjs-pkg": "node -e \"require('fs').writeFileSync('dist/cjs/package.json', JSON.stringify({type:'commonjs'}))\"",
     "clean": "rm -rf dist",
+    "lint": "oxlint src",
     "prepare": "pnpm run build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

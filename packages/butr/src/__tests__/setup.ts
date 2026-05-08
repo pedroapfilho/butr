@@ -8,7 +8,7 @@ const createMockStorage = (): Storage => {
     }),
     getItem: vi.fn((key: string) => store.get(key) ?? null),
     key: vi.fn((index: number) => {
-      const keys = Array.from(store.keys());
+      const keys = [...store.keys()];
       return keys[index] ?? null;
     }),
     get length() {

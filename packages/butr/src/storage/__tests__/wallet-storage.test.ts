@@ -32,14 +32,14 @@ describe("WalletStorage", () => {
       const data = {
         evm: {
           account: {
-            walletAddress: "0x123",
-            id: "acc-1",
             chain: {
               id: "eip155:1",
+              name: "Ethereum",
               namespace: "eip155",
               reference: "1",
-              name: "Ethereum",
             },
+            id: "acc-1",
+            walletAddress: "0x123",
           },
           connectorId: "metamask",
         },
@@ -64,14 +64,14 @@ describe("WalletStorage", () => {
       const data = {
         cosmos: {
           account: {
-            walletAddress: "cosmos1abc",
-            id: "acc-1",
             chain: {
               id: "cosmos:1",
+              name: "Cosmos",
               namespace: "cosmos",
               reference: "1",
-              name: "Cosmos",
             },
+            id: "acc-1",
+            walletAddress: "cosmos1abc",
           },
           connectorId: "keplr",
         },
@@ -89,9 +89,9 @@ describe("WalletStorage", () => {
           account: {
             chain: {
               id: "eip155:1",
+              name: "Ethereum",
               namespace: "eip155",
               reference: "1",
-              name: "Ethereum",
             },
             id: "acc-1",
             walletAddress: "0x123",
@@ -109,13 +109,13 @@ describe("WalletStorage", () => {
       const data = {
         evm: {
           account: {
-            id: "acc-1",
             chain: {
               id: "eip155:1",
+              name: "Ethereum",
               namespace: "eip155",
               reference: "1",
-              name: "Ethereum",
             },
+            id: "acc-1",
           },
           connectorId: "metamask",
         },
@@ -130,7 +130,7 @@ describe("WalletStorage", () => {
       const persistent = createMockStorageDriver();
       const data = {
         evm: {
-          account: { walletAddress: "0x123", id: "acc-1" },
+          account: { id: "acc-1", walletAddress: "0x123" },
           connectorId: "metamask",
         },
       };
@@ -179,27 +179,27 @@ describe("WalletStorage", () => {
       const data = {
         evm: {
           account: {
-            walletAddress: "0x123",
-            id: "acc-1",
             chain: {
               id: "eip155:1",
+              name: "Ethereum",
               namespace: "eip155",
               reference: "1",
-              name: "Ethereum",
             },
+            id: "acc-1",
+            walletAddress: "0x123",
           },
           connectorId: "metamask",
         },
         svm: {
           account: {
-            walletAddress: "So1ana",
-            id: "acc-2",
             chain: {
               id: "solana:mainnet",
+              name: "Solana",
               namespace: "solana",
               reference: "mainnet",
-              name: "Solana",
             },
+            id: "acc-2",
+            walletAddress: "So1ana",
           },
           connectorId: "phantom",
         },
