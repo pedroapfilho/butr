@@ -4,7 +4,6 @@ import {
   useConnectionError,
   useConnectionStatus,
   useConnectWallet,
-  useConnectOIDCWallet,
   useDisconnectWallet,
   useIsConnecting,
   useIsUserDisconnected,
@@ -34,7 +33,6 @@ const ConnectionSection = () => {
   const isUserDisconnected = useIsUserDisconnected();
 
   const connect = useConnectWallet();
-  const connectOIDC = useConnectOIDCWallet();
   const disconnect = useDisconnectWallet();
   const refresh = useRefreshWallet();
   const reset = useResetWallet();
@@ -64,8 +62,9 @@ const ConnectionSection = () => {
       <Text>user disconnected flag: {String(isUserDisconnected)}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 8 }}>
         <Btn label="Connect EVM" onPress={() => connect("mock-evm")} />
-        <Btn label="Connect OIDC" onPress={() => connectOIDC("mock-oidc")} />
+        <Btn label="Connect SVM" onPress={() => connect("mock-svm")} />
         <Btn label="Disconnect EVM" onPress={() => disconnect("evm")} />
+        <Btn label="Disconnect SVM" onPress={() => disconnect("svm")} />
         <Btn label="Refresh EVM" onPress={() => refresh("evm")} />
         <Btn label="Reset" onPress={() => reset()} />
         <Btn label="Cycle status" onPress={cycleStatus} />

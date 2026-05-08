@@ -2,7 +2,6 @@ import { Pressable, Text, View } from "react-native";
 import {
   useConnectedWallets,
   useConnectedWalletsMap,
-  useConnectedWalletsMapByPlatform,
   useGetWalletByChain,
   useGetWalletByPlatform,
   useGetWalletForOperation,
@@ -28,13 +27,13 @@ const formatWallet = (w: ConnectedWallet | undefined) =>
 const WalletsSection = () => {
   const wallets = useConnectedWallets();
   const map = useConnectedWalletsMap();
-  const mapByPlatform = useConnectedWalletsMapByPlatform();
   const hasAny = useHasAnyWallet();
   const isWalletConnected = useIsWalletConnected();
   const getByChain = useGetWalletByChain();
   const getByPlatform = useGetWalletByPlatform();
   const getForOperation = useGetWalletForOperation();
-  const reactiveWallet = useWalletForOperation("evm");
+  const reactiveEvm = useWalletForOperation("evm");
+  const reactiveSvm = useWalletForOperation("svm");
   const updateAccount = useUpdateWalletAccount();
 
   const rotateAccount = () => {
@@ -51,15 +50,16 @@ const WalletsSection = () => {
       <Text style={{ fontSize: 18, fontWeight: "600" }}>Wallets</Text>
       <Text>has any: {String(hasAny)}</Text>
       <Text>is evm connected: {String(isWalletConnected("evm"))}</Text>
+      <Text>is svm connected: {String(isWalletConnected("svm"))}</Text>
       <Text>
         list ({wallets.length}): {wallets.map((w) => w.connector.id).join(", ") || "none"}
       </Text>
       <Text>by chain (evm): {formatWallet(getByChain("evm"))}</Text>
-      <Text>by platform (evm): {formatWallet(getByPlatform("evm"))}</Text>
+      <Text>by platform (svm): {formatWallet(getByPlatform("svm"))}</Text>
       <Text>for operation (evm): {formatWallet(getForOperation("evm"))}</Text>
-      <Text>reactive evm: {formatWallet(reactiveWallet)}</Text>
-      <Text>map size: {map.size}</Text>
-      <Text>map-by-platform keys: {[...mapByPlatform.keys()].join(", ") || "none"}</Text>
+      <Text>reactive evm: {formatWallet(reactiveEvm)}</Text>
+      <Text>reactive svm: {formatWallet(reactiveSvm)}</Text>
+      <Text>map keys: {[...map.keys()].join(", ") || "none"}</Text>
       <Pressable
         onPress={rotateAccount}
         style={{

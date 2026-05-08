@@ -1,14 +1,8 @@
 import { createStore } from "zustand/vanilla";
 import { devtools } from "zustand/middleware";
-import type { ChainPlatform, ConnectedWallet, WalletManagerConfig, WalletMode } from "../types";
+import type { ConnectedWallet, WalletManagerConfig } from "../types";
 import { WalletStorage } from "../storage";
-import {
-  hydrateFromStorage,
-  isProduction,
-  logStorageError,
-  resolveTargetKey,
-  run,
-} from "./wallet-store-helpers";
+import { hydrateFromStorage, isProduction, logStorageError, run } from "./wallet-store-helpers";
 import type { InternalWalletState } from "./wallet-store-helpers";
 
 const CONNECT_TIMEOUT_MS = 90_000;
@@ -37,18 +31,12 @@ const createWalletStore = (config: WalletManagerConfig) => {
         hasAnyWallet: false,
         isHydrated: false,
         isUserDisconnected: false,
-        walletMode: "none",
         wallets: [],
 
         // Connection status tracking
         _config: config,
         _hydrateWallets: async () => {
           const result = await hydrateFromStorage(storage, config.createConnector);
-
-          void run(
-            () => storage.setWalletMode(result.walletMode),
-            logStorageError("failed to persist wallet mode"),
-          );
 
           set(
             {
@@ -58,7 +46,6 @@ const createWalletStore = (config: WalletManagerConfig) => {
               hasAnyWallet: result.hasAnyWallet,
               isHydrated: true,
               isUserDisconnected: result.isUserDisconnected,
-              walletMode: result.walletMode,
               wallets: result.wallets,
             },
             false,
@@ -72,31 +59,14 @@ const createWalletStore = (config: WalletManagerConfig) => {
           );
         },
 
-        _persistConnectedWallets: (wallets: Map<ChainPlatform, ConnectedWallet>) => {
+        _persistConnectedWallets: (wallets) => {
           void run(
             () => storage.setConnectedWallets(wallets),
             logStorageError("failed to persist wallets"),
           );
         },
-        _setWalletMode: (mode: WalletMode) => {
-          set({ walletMode: mode }, false);
-          void run(
-            () => storage.setWalletMode(mode),
-            logStorageError("failed to persist wallet mode"),
-          );
-        },
 
         _storage: storage,
-
-        _updateDerivedState: () => {
-          const currentState = get();
-          const wallets = [...currentState.connectedWallets.values()];
-          const hasAnyWallet = currentState.connectedWallets.size > 0;
-          const connecting = false;
-          const connected = hasAnyWallet;
-
-          set({ connected, connecting, hasAnyWallet, wallets }, false);
-        },
 
         activeConnectorId: null,
 
@@ -104,59 +74,12 @@ const createWalletStore = (config: WalletManagerConfig) => {
 
         connectionStatus: "idle",
 
-        connectOIDCWallet: async (id, onSuccess, onError) => {
-          const state = get();
-          if (!state.isHydrated) {
-            throw new Error("OIDC wallet connections require hydration to complete first");
-          }
-
-          const connector = config.createConnector(id);
-          if (!connector) {
-            throw new Error(`Failed to create connector for ${id}`);
-          }
-
-          if (connector.isSmartWallet && state.walletMode === "external-wallet") {
-            const platformsToDisconnect = [...state.connectedWallets.keys()];
-            for (const platform of platformsToDisconnect) {
-              state.disconnectWallet(platform);
-            }
-          }
-
-          if (!connector.isSmartWallet && state.walletMode === "smart-wallet") {
-            const platformsToDisconnect = [...state.connectedWallets.keys()];
-            for (const platform of platformsToDisconnect) {
-              state.disconnectWallet(platform);
-            }
-          }
-
-          await state.connectWallet(id, onSuccess, onError);
-        },
-
         connectWallet: async (id, onSuccess, onError) => {
           get()._markUserDisconnected(false);
 
-          const walletState = get();
           const connector = config.createConnector(id);
           if (!connector) {
             throw new Error(`Failed to create connector for ${id}`);
-          }
-
-          const isSmartWallet = connector.isSmartWallet === true;
-          const isExternalWallet = !isSmartWallet;
-
-          // Auto-disconnect incompatible wallets
-          if (isSmartWallet && walletState.walletMode === "external-wallet") {
-            const platformsToDisconnect = [...walletState.connectedWallets.keys()];
-            for (const platform of platformsToDisconnect) {
-              walletState.disconnectWallet(platform);
-            }
-          }
-
-          if (isExternalWallet && walletState.walletMode === "smart-wallet") {
-            const platformsToDisconnect = [...walletState.connectedWallets.keys()];
-            for (const platform of platformsToDisconnect) {
-              walletState.disconnectWallet(platform);
-            }
           }
 
           set(
@@ -220,12 +143,6 @@ const createWalletStore = (config: WalletManagerConfig) => {
             const updatedWallets = get().connectedWallets;
             get()._persistConnectedWallets(updatedWallets);
 
-            if (isSmartWallet && walletState.walletMode !== "smart-wallet") {
-              get()._setWalletMode("smart-wallet");
-            } else if (isExternalWallet && walletState.walletMode !== "external-wallet") {
-              get()._setWalletMode("external-wallet");
-            }
-
             config.onConnect?.(connectedWallet);
             onSuccess?.(connectedWallet);
           } catch (error) {
@@ -249,31 +166,27 @@ const createWalletStore = (config: WalletManagerConfig) => {
             return;
           }
 
-          const targetKey = resolveTargetKey(disconnectState.connectedWallets, chainPlatform);
-
-          if (!targetKey) {
+          if (!disconnectState.connectedWallets.has(chainPlatform)) {
             return;
           }
 
-          const wallet = disconnectState.connectedWallets.get(targetKey);
+          const wallet = disconnectState.connectedWallets.get(chainPlatform);
           if (wallet) {
             void run(() => wallet.connector.disconnect?.() ?? Promise.resolve(), console.error);
           }
 
           set((prev) => {
             const newWallets = new Map(prev.connectedWallets);
-            newWallets.delete(targetKey);
+            newWallets.delete(chainPlatform);
 
             const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;
-            const walletMode = newWallets.size === 0 ? "none" : prev.walletMode;
 
             return {
               connected: hasAnyWallet,
               connectedWallets: newWallets,
               connecting: false,
               hasAnyWallet,
-              walletMode,
               wallets,
             };
           }, false);
@@ -292,71 +205,29 @@ const createWalletStore = (config: WalletManagerConfig) => {
         },
 
         getWalletByPlatform: (chainPlatform) => {
-          const state = get();
-          const directWallet = state.connectedWallets.get(chainPlatform);
-          if (directWallet) {
-            return directWallet;
-          }
-
-          if (chainPlatform === "unified") {
-            return state.connectedWallets.get("unified");
-          }
-
-          const unifiedWallet = state.connectedWallets.get("unified");
-          if (!unifiedWallet) {
-            return undefined;
-          }
-
-          if (chainPlatform === "evm" || chainPlatform === "svm") {
-            const resolvedAccount =
-              unifiedWallet.connector.getAccountForPlatform?.(chainPlatform) ??
-              unifiedWallet.account;
-
-            return {
-              ...unifiedWallet,
-              account: resolvedAccount,
-            };
-          }
-
-          return undefined;
+          return get().connectedWallets.get(chainPlatform);
         },
 
         getWalletForOperation: (chainPlatform) => {
-          const wallet = get().getWalletByPlatform(chainPlatform);
-          if (wallet) {
-            wallet.connector.setActiveChainPlatform?.(chainPlatform);
-            const resolvedAccount = wallet.connector.getAccountForPlatform?.(chainPlatform);
-
-            if (resolvedAccount && resolvedAccount.walletAddress !== wallet.account.walletAddress) {
-              return {
-                ...wallet,
-                account: resolvedAccount,
-              };
-            }
-
-            return wallet;
-          }
-          return undefined;
+          return get().connectedWallets.get(chainPlatform);
         },
 
         isWalletConnected: (chainPlatform) => {
-          return get().getWalletByPlatform(chainPlatform) !== undefined;
+          return get().connectedWallets.has(chainPlatform);
         },
 
         refreshWallet: (chainPlatform) => {
           set((prev) => {
-            const targetKey = resolveTargetKey(prev.connectedWallets, chainPlatform);
-
-            if (!targetKey) {
+            if (!prev.connectedWallets.has(chainPlatform)) {
               return prev;
             }
 
-            const wallet = prev.connectedWallets.get(targetKey);
+            const wallet = prev.connectedWallets.get(chainPlatform);
             if (!wallet) {
               return prev;
             }
 
-            const newWallets = new Map([...prev.connectedWallets, [targetKey, { ...wallet }]]);
+            const newWallets = new Map([...prev.connectedWallets, [chainPlatform, { ...wallet }]]);
 
             const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;
@@ -400,7 +271,6 @@ const createWalletStore = (config: WalletManagerConfig) => {
               connectionError: null,
               connectionStatus: "idle",
               hasAnyWallet: false,
-              walletMode: "none",
               wallets: [],
             },
             false,
@@ -434,21 +304,18 @@ const createWalletStore = (config: WalletManagerConfig) => {
 
         updateWalletAccount: (chainPlatform, newAccount) => {
           set((prev) => {
-            const targetKey = resolveTargetKey(prev.connectedWallets, chainPlatform);
-
-            if (!targetKey) {
+            if (!prev.connectedWallets.has(chainPlatform)) {
               return prev;
             }
 
-            const wallet = prev.connectedWallets.get(targetKey);
+            const wallet = prev.connectedWallets.get(chainPlatform);
             if (!wallet) {
               return prev;
             }
 
             // Skip update when the account hasn't actually changed.
             // Prevents unnecessary Map churn that cascades through
-            // useSyncExternalStore subscribers (e.g. useWalletForOperation
-            // in TradeWidget), which can trigger Error #185.
+            // useSyncExternalStore subscribers, which can trigger Error #185.
             if (
               wallet.account.walletAddress === newAccount.walletAddress &&
               wallet.account.chain.id === newAccount.chain.id
@@ -461,7 +328,7 @@ const createWalletStore = (config: WalletManagerConfig) => {
               account: newAccount,
             };
 
-            const newWallets = new Map([...prev.connectedWallets, [targetKey, updatedWallet]]);
+            const newWallets = new Map([...prev.connectedWallets, [chainPlatform, updatedWallet]]);
 
             const wallets = [...newWallets.values()];
             const hasAnyWallet = newWallets.size > 0;

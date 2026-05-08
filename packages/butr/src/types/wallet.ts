@@ -1,24 +1,12 @@
 import type { WalletPersistence } from "../storage/persistence";
 import type { ChainBase } from "./chain";
 
-type ChainPlatform = "evm" | "svm" | "move" | "unified";
-
-type WalletMode = "smart-wallet" | "external-wallet" | "none";
+type ChainPlatform = "evm" | "svm";
 
 type Account = {
   chain: ChainBase;
   id: string;
   walletAddress: string;
-};
-
-type SignInInput = {
-  chainId?: string;
-  domain: string;
-  issuedAt?: string;
-  nonce?: string;
-  statement?: string;
-  uri?: string;
-  version?: string;
 };
 
 type Balance = {
@@ -34,8 +22,6 @@ type Balance = {
 
 /** Unified connector interface that any wallet implementation must fulfill. */
 type UIConnector = {
-  /** OIDC provider: "google", "apple", "github", etc. */
-  authProvider?: string;
   chainPlatform: ChainPlatform;
   // Lifecycle
   connect(): Promise<void>;
@@ -43,8 +29,6 @@ type UIConnector = {
   disconnect?(): Promise<void>;
   // Capabilities
   getAccount(): Promise<Account | null>;
-  /** For unified connectors: get the account for a specific platform */
-  getAccountForPlatform?(platform: ChainPlatform): Account | null;
   getBalance(mint?: string): Promise<Balance>;
   /** Returns a chain-specific signer. Consumers cast to the concrete type (e.g. WalletClient). */
   getSigner(): Promise<unknown>;
@@ -52,30 +36,12 @@ type UIConnector = {
     status: "Success" | "Error" | "Pending";
   }>;
 
-  /** Stable key: "metamask", "phantom", "embedded-evm", etc. */
+  /** Stable key: "metamask", "phantom", etc. */
   id: string;
-  /** True for embedded wallets */
-  isEmbedded?: boolean;
-
-  /** True if wallet uses OIDC for authentication (OAuth providers) */
-  isOIDCBased?: boolean;
-  /** True for smart contract wallets (account abstraction) */
-  isSmartWallet?: boolean;
-  /** Human name: "MetaMask", "Phantom", "Google", etc. */
+  /** Human name: "MetaMask", "Phantom", etc. */
   name: string;
-  /** True if authentication is required before connection */
-  requiresAuth?: boolean;
   sendTx(tx: unknown): Promise<string>;
   sendTxToChain(tx: unknown, targetChainId: string, cb?: () => void): Promise<string>;
-  /** For unified connectors: set which platform is currently active */
-  setActiveChainPlatform?(platform: ChainPlatform): void;
-  /**
-   * Optional Sign-In With Solana / Ethereum flow. Implemented when the
-   * connected wallet supports the chain's sign-in feature (e.g. Wallet
-   * Standard `solana:signIn`). Returns the same shape as `signMessage` —
-   * `signedMessage` is the bytes the wallet rendered and signed.
-   */
-  signIn?(input: SignInInput): Promise<{ signature: Uint8Array; signedMessage: Uint8Array }>;
   /**
    * Sign a message and return both the signature and the bytes the wallet
    * actually signed. Solana Wallet Standard wallets may prefix or re-encode
@@ -83,8 +49,6 @@ type UIConnector = {
    * `signedMessage`, not the input bytes. EVM wallets echo the input.
    */
   signMessage(msg: Uint8Array): Promise<{ signature: Uint8Array; signedMessage: Uint8Array }>;
-  /** Can be used as owner for smart wallets */
-  supportsSmartWallets?: boolean;
 
   switchAccount?(address: string): Promise<void>;
   switchChain(chain: ChainBase): Promise<void>;
@@ -124,8 +88,6 @@ export type {
   ChainPlatform,
   ConnectedWallet,
   ConnectorMeta,
-  SignInInput,
   UIConnector,
   WalletManagerConfig,
-  WalletMode,
 };

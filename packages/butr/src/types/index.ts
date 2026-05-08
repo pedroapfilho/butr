@@ -6,8 +6,6 @@ export type {
   ChainPlatform,
   ConnectedWallet,
   ConnectorMeta,
-  SignInInput,
   UIConnector,
   WalletManagerConfig,
-  WalletMode,
 } from "./wallet";

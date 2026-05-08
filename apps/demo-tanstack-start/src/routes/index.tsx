@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ConnectionSection } from "../sections/connection";
 import { InternalsSection } from "../sections/internals";
-import { ModeSection } from "../sections/mode";
 import { WalletsSection } from "../sections/wallets";
 
 const Home = () => (
@@ -11,7 +10,6 @@ const Home = () => (
     </header>
     <ConnectionSection />
     <WalletsSection />
-    <ModeSection />
     <InternalsSection />
   </main>
 );

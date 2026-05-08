@@ -1,4 +1,4 @@
-import type { Account, ChainPlatform, ConnectedWallet, WalletMode } from "../types";
+import type { Account, ChainPlatform, ConnectedWallet } from "../types";
 
 type MaybePromise<T> = T | Promise<T>;
 
@@ -20,14 +20,11 @@ type ConnectedWalletsRecord = Partial<Record<string, StoredWalletData>>;
 type WalletPersistence = {
   clearAll(): Promise<void>;
   clearConnectedWallets(): Promise<void>;
-  clearWalletMode(): Promise<void>;
   getConnectedWallets(): Promise<ConnectedWalletsRecord>;
-  getWalletMode(): Promise<WalletMode>;
   isUserDisconnected(): Promise<boolean>;
   markUserDisconnected(value: boolean): Promise<void>;
   removeConnectedWallet(chainPlatform: ChainPlatform): Promise<void>;
   setConnectedWallets(wallets: Map<ChainPlatform, ConnectedWallet>): Promise<void>;
-  setWalletMode(mode: WalletMode): Promise<void>;
 };
 
 export type {

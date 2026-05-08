@@ -1,8 +1,8 @@
-import type { ChainPlatform, ConnectedWallet, WalletMode } from "../types";
-import { createBrowserStorageDriver, createMemoryStorageDriver } from "./browser-storage-driver";
+import type { ChainPlatform, ConnectedWallet } from "../types";
+import { createBrowserStorageDriver } from "./browser-storage-driver";
 import type { ConnectedWalletsRecord, StorageDriver, WalletPersistence } from "./persistence";
 
-const VALID_CHAIN_PLATFORMS = new Set(["evm", "svm", "move", "unified"]);
+const VALID_CHAIN_PLATFORMS = new Set<ChainPlatform>(["evm", "svm"]);
 
 type StorageConfig = {
   keyPrefix: string;
@@ -14,14 +14,12 @@ type StorageConfig = {
 
 class WalletStorage implements WalletPersistence {
   private connectedWalletsKey: string;
-  private walletModeKey: string;
   private userDisconnectedKey: string;
   private persistent: StorageDriver;
   private session: StorageDriver;
 
   constructor(config: StorageConfig) {
     this.connectedWalletsKey = `${config.keyPrefix}-connected-wallets`;
-    this.walletModeKey = `${config.keyPrefix}-wallet-mode`;
     this.userDisconnectedKey = `${config.keyPrefix}-user-disconnected`;
 
     if (config.persistent && config.session) {
@@ -46,7 +44,7 @@ class WalletStorage implements WalletPersistence {
         return false;
       }
 
-      if (!VALID_CHAIN_PLATFORMS.has(key)) {
+      if (!VALID_CHAIN_PLATFORMS.has(key as ChainPlatform)) {
         return false;
       }
 
@@ -132,39 +130,6 @@ class WalletStorage implements WalletPersistence {
 
   async clearAll(): Promise<void> {
     await this.persistent.removeItem(this.connectedWalletsKey);
-    await this.persistent.removeItem(this.walletModeKey);
-  }
-
-  async getWalletMode(): Promise<WalletMode> {
-    try {
-      const mode = await this.persistent.getItem(this.walletModeKey);
-      if (!mode) {
-        return "none";
-      }
-
-      if (mode === "smart-wallet" || mode === "external-wallet" || mode === "none") {
-        return mode;
-      }
-
-      console.warn("Invalid wallet mode in storage, resetting to none");
-      await this.clearWalletMode();
-      return "none";
-    } catch (error) {
-      console.warn("Failed to get wallet mode from storage:", error);
-      return "none";
-    }
-  }
-
-  async setWalletMode(mode: WalletMode): Promise<void> {
-    try {
-      await this.persistent.setItem(this.walletModeKey, mode);
-    } catch (error) {
-      console.warn("Failed to set wallet mode in storage:", error);
-    }
-  }
-
-  async clearWalletMode(): Promise<void> {
-    await this.persistent.removeItem(this.walletModeKey);
   }
 
   /**
@@ -195,4 +160,4 @@ class WalletStorage implements WalletPersistence {
   }
 }
 
-export { createMemoryStorageDriver, WalletStorage };
+export { WalletStorage };

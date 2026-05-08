@@ -1,9 +1,8 @@
-import React from "react";
 import { useStore } from "zustand";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useWalletStoreContext } from "./context";
 import type { WalletStoreState } from "./store";
-import type { ChainPlatform, ConnectedWallet } from "./types";
+import type { ChainPlatform } from "./types";
 
 // ============================================================================
 // STATE HOOKS
@@ -19,12 +18,6 @@ const useWalletConnected = () => {
 const useHasAnyWallet = () => {
   const store = useWalletStoreContext();
   return useStore(store, (state) => state.hasAnyWallet);
-};
-
-/** Get current wallet mode. Only re-renders when wallet mode changes. */
-const useWalletMode = () => {
-  const store = useWalletStoreContext();
-  return useStore(store, (state) => state.walletMode);
 };
 
 /** Session-scoped disconnect-intent flag. True after an explicit disconnect or
@@ -47,36 +40,6 @@ const useConnectedWalletsMap = () => {
   return useStore(store, (state) => state.connectedWallets);
 };
 
-/**
- * Get connected wallets as a map keyed by platform (evm/svm).
- * Unified connectors are expanded into separate evm and svm entries.
- */
-const useConnectedWalletsMapByPlatform = () => {
-  const connectedWallets = useConnectedWallets();
-
-  return React.useMemo(() => {
-    const map = new Map<ChainPlatform, ConnectedWallet>();
-
-    for (const wallet of connectedWallets) {
-      if (wallet.connector.chainPlatform === "unified") {
-        const evmAccount = wallet.connector.getAccountForPlatform?.("evm");
-        const svmAccount = wallet.connector.getAccountForPlatform?.("svm");
-
-        if (evmAccount) {
-          map.set("evm", { ...wallet, account: evmAccount });
-        }
-        if (svmAccount) {
-          map.set("svm", { ...wallet, account: svmAccount });
-        }
-      } else {
-        map.set(wallet.connector.chainPlatform, wallet);
-      }
-    }
-
-    return map;
-  }, [connectedWallets]);
-};
-
 // ============================================================================
 // ACTION HOOKS - Stable references
 // ============================================================================
@@ -91,12 +54,6 @@ const useConnectWallet = () => {
 const useDisconnectWallet = () => {
   const store = useWalletStoreContext();
   return useStore(store, (state) => state.disconnectWallet);
-};
-
-/** Connect OIDC wallet */
-const useConnectOIDCWallet = () => {
-  const store = useWalletStoreContext();
-  return useStore(store, (state) => state.connectOIDCWallet);
 };
 
 /** Reset wallet system */
@@ -139,11 +96,7 @@ const useGetWalletForOperation = () => {
   return useStore(store, (state) => state.getWalletForOperation);
 };
 
-/** Reactive wallet lookup — re-renders when the wallet for the given platform changes.
- *  Uses useStoreWithEqualityFn to prevent infinite re-renders: getWalletByPlatform
- *  creates new objects for resolved platform lookups (e.g. SVM via unified connector),
- *  which fail Object.is on every selector call. Without a custom equality function,
- *  useSyncExternalStore forces synchronous re-renders in an infinite loop. */
+/** Reactive wallet lookup — re-renders when the wallet for the given platform changes. */
 const useWalletForOperation = (chainPlatform: ChainPlatform | null) => {
   const store = useWalletStoreContext();
   return useStoreWithEqualityFn(
@@ -241,8 +194,6 @@ export {
   useActiveConnectorId,
   useConnectedWallets,
   useConnectedWalletsMap,
-  useConnectedWalletsMapByPlatform,
-  useConnectOIDCWallet,
   useConnectionError,
   useConnectionStatus,
   useConnectWallet,
@@ -255,13 +206,12 @@ export {
   useIsConnecting,
   useIsUserDisconnected,
   useIsWalletConnected,
+  useRefreshWallet,
   useResetConnectionStatus,
   useResetWallet,
-  useRefreshWallet,
   useSetConnectionStatus,
   useUpdateWalletAccount,
   useWalletConnected,
   useWalletForOperation,
-  useWalletMode,
   useWalletStore,
 };

@@ -38,7 +38,6 @@ describe("createWalletStore", () => {
       expect(state.hasAnyWallet).toBe(false);
       expect(state.connected).toBe(false);
       expect(state.connecting).toBe(false);
-      expect(state.walletMode).toBe("none");
       expect(state.isHydrated).toBe(false);
       expect(state.isUserDisconnected).toBe(false);
     });
@@ -87,29 +86,6 @@ describe("createWalletStore", () => {
       expect(await storage.isUserDisconnected()).toBe(false);
     });
 
-    it("sets walletMode to external-wallet for non-smart wallets", async () => {
-      const connector = createMockConnector({ isSmartWallet: false });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("test");
-      expect(store.getState().walletMode).toBe("external-wallet");
-    });
-
-    it("sets walletMode to smart-wallet for smart wallets", async () => {
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-        isSmartWallet: true,
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("smart");
-      expect(store.getState().walletMode).toBe("smart-wallet");
-    });
-
     it("skips Map update when connecting same address on same platform", async () => {
       const account = createMockAccount({ walletAddress: "0xSAME" });
       const connector = createMockConnector({
@@ -126,60 +102,6 @@ describe("createWalletStore", () => {
       const walletsAfterSecond = store.getState().connectedWallets;
 
       expect(walletsAfterFirst).toBe(walletsAfterSecond);
-    });
-
-    it("auto-disconnects external wallets when connecting smart wallet", async () => {
-      const externalConnector = createMockConnector({
-        id: "metamask",
-        isSmartWallet: false,
-      });
-      const smartConnector = createMockConnector({
-        chainPlatform: "unified",
-        id: "privy",
-        isSmartWallet: true,
-      });
-      const { store } = createTestStore({
-        createConnector: vi
-          .fn()
-          .mockReturnValueOnce(externalConnector)
-          .mockReturnValueOnce(externalConnector)
-          .mockReturnValue(smartConnector),
-      });
-
-      await store.getState().connectWallet("metamask");
-      // need to hydrate so disconnectWallet works
-      await hydrateStore(store);
-      expect(store.getState().walletMode).toBe("external-wallet");
-
-      await store.getState().connectWallet("privy");
-      expect(store.getState().walletMode).toBe("smart-wallet");
-      expect(externalConnector.disconnect).toHaveBeenCalled();
-    });
-
-    it("auto-disconnects smart wallets when connecting external wallet", async () => {
-      const smartConnector = createMockConnector({
-        chainPlatform: "unified",
-        id: "privy",
-        isSmartWallet: true,
-      });
-      const externalConnector = createMockConnector({
-        id: "metamask",
-        isSmartWallet: false,
-      });
-      const { store } = createTestStore({
-        createConnector: vi
-          .fn()
-          .mockReturnValueOnce(smartConnector)
-          .mockReturnValueOnce(smartConnector)
-          .mockReturnValue(externalConnector),
-      });
-
-      await store.getState().connectWallet("privy");
-      await hydrateStore(store);
-      expect(store.getState().walletMode).toBe("smart-wallet");
-
-      await store.getState().connectWallet("metamask");
-      expect(store.getState().walletMode).toBe("external-wallet");
     });
 
     it("calls onConnect callback", async () => {
@@ -282,20 +204,17 @@ describe("createWalletStore", () => {
       expect(await storage.isUserDisconnected()).toBe(true);
     });
 
-    it("falls back to unified when requesting evm", async () => {
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-        id: "privy",
-      });
+    it("is a no-op for missing platform", async () => {
+      const connector = createMockConnector({ chainPlatform: "evm" });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
 
-      await store.getState().connectWallet("privy");
+      await store.getState().connectWallet("evm-wallet");
       await hydrateStore(store);
 
-      store.getState().disconnectWallet("evm");
-      expect(store.getState().connectedWallets.size).toBe(0);
+      store.getState().disconnectWallet("svm");
+      expect(store.getState().connectedWallets.size).toBe(1);
     });
 
     it("is a no-op before hydration", async () => {
@@ -338,7 +257,6 @@ describe("createWalletStore", () => {
       store.getState().disconnectWallet("evm");
 
       expect(clearAllSpy).toHaveBeenCalled();
-      expect(store.getState().walletMode).toBe("none");
     });
 
     it("completes disconnect even when storage.clearAll throws", async () => {
@@ -359,7 +277,6 @@ describe("createWalletStore", () => {
 
       expect(store.getState().connectedWallets.size).toBe(0);
       expect(store.getState().connected).toBe(false);
-      expect(store.getState().walletMode).toBe("none");
       expect(onDisconnect).toHaveBeenCalledWith("evm");
     });
   });
@@ -384,104 +301,22 @@ describe("createWalletStore", () => {
       const { store } = createTestStore();
       expect(store.getState().getWalletByPlatform("svm")).toBeUndefined();
     });
-
-    it("falls back to unified for evm platform", async () => {
-      const evmAccount = createMockAccount({
-        chain: createMockChain({ id: "eip155:1" }),
-        walletAddress: "0xEVM",
-      });
-      const unifiedAccount = createMockAccount({
-        chain: createMockChain({ id: "unified:1" }),
-        walletAddress: "0xUNIFIED",
-      });
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-        getAccount: vi.fn().mockResolvedValue(unifiedAccount),
-        getAccountForPlatform: vi.fn().mockReturnValue(evmAccount),
-        id: "privy",
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("privy");
-
-      const wallet = store.getState().getWalletByPlatform("evm");
-      expect(wallet?.account.walletAddress).toBe("0xEVM");
-    });
-
-    it("falls back to unified for svm platform", async () => {
-      const svmAccount = createMockAccount({
-        chain: createMockChain({ id: "solana:mainnet", namespace: "solana" }),
-        walletAddress: "SoLaNa123",
-      });
-      const unifiedAccount = createMockAccount({
-        walletAddress: "0xUNIFIED",
-      });
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-        getAccount: vi.fn().mockResolvedValue(unifiedAccount),
-        getAccountForPlatform: vi.fn().mockReturnValue(svmAccount),
-        id: "privy",
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("privy");
-
-      const wallet = store.getState().getWalletByPlatform("svm");
-      expect(wallet?.account.walletAddress).toBe("SoLaNa123");
-    });
-
-    it("does not fall back to unified for move platform", async () => {
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("test");
-
-      expect(store.getState().getWalletByPlatform("move")).toBeUndefined();
-    });
   });
 
   describe("getWalletForOperation", () => {
-    it("calls setActiveChainPlatform on the connector", async () => {
-      const setActiveChainPlatform = vi.fn();
+    it("returns the connected wallet for the platform", async () => {
       const connector = createMockConnector({
+        chainPlatform: "evm",
         id: "metamask",
-        setActiveChainPlatform,
       });
       const { store } = createTestStore({
         createConnector: vi.fn().mockReturnValue(connector),
       });
 
       await store.getState().connectWallet("metamask");
-      store.getState().getWalletForOperation("evm");
-
-      expect(setActiveChainPlatform).toHaveBeenCalledWith("evm");
-    });
-
-    it("returns wallet with resolved account when addresses differ", async () => {
-      const resolvedAccount = createMockAccount({
-        walletAddress: "0xRESOLVED",
-      });
-      const connector = createMockConnector({
-        chainPlatform: "evm",
-        getAccountForPlatform: vi.fn().mockReturnValue(resolvedAccount),
-        id: "privy",
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("privy");
       const wallet = store.getState().getWalletForOperation("evm");
 
-      expect(wallet?.account.walletAddress).toBe("0xRESOLVED");
+      expect(wallet?.connector.id).toBe("metamask");
     });
 
     it("returns undefined for missing platform", () => {
@@ -526,27 +361,11 @@ describe("createWalletStore", () => {
       expect(walletsBefore).toBe(walletsAfter);
     });
 
-    it("falls back to unified for evm platform", async () => {
-      const connector = createMockConnector({ chainPlatform: "unified" });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-
-      await store.getState().connectWallet("test");
-
-      const newAccount = createMockAccount({ walletAddress: "0xUPDATED" });
-      store.getState().updateWalletAccount("evm", newAccount);
-
-      expect(store.getState().connectedWallets.get("unified")?.account.walletAddress).toBe(
-        "0xUPDATED",
-      );
-    });
-
     it("is a no-op for missing platform", () => {
       const { store } = createTestStore();
       const newAccount = createMockAccount();
 
-      store.getState().updateWalletAccount("move", newAccount);
+      store.getState().updateWalletAccount("svm", newAccount);
       expect(store.getState().connectedWallets.size).toBe(0);
     });
   });
@@ -572,7 +391,7 @@ describe("createWalletStore", () => {
       const { store } = createTestStore();
       const stateBefore = store.getState().connectedWallets;
 
-      store.getState().refreshWallet("move");
+      store.getState().refreshWallet("svm");
 
       expect(store.getState().connectedWallets).toBe(stateBefore);
     });
@@ -592,7 +411,6 @@ describe("createWalletStore", () => {
       store.getState().reset();
 
       expect(store.getState().connectedWallets.size).toBe(0);
-      expect(store.getState().walletMode).toBe("none");
       expect(store.getState().connected).toBe(false);
       expect(store.getState().connectionStatus).toBe("idle");
       expect(clearAllSpy).toHaveBeenCalled();
@@ -641,88 +459,6 @@ describe("createWalletStore", () => {
     });
   });
 
-  describe("connectOIDCWallet", () => {
-    it("delegates to connectWallet", async () => {
-      const connector = createMockConnector({
-        chainPlatform: "unified",
-        id: "google",
-        isOIDCBased: true,
-        isSmartWallet: true,
-      });
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-      });
-      await hydrateStore(store);
-
-      await store.getState().connectOIDCWallet("google");
-
-      expect(store.getState().connectedWallets.size).toBe(1);
-    });
-
-    it("disconnects external wallets when connecting smart OIDC wallet", async () => {
-      const externalConnector = createMockConnector({
-        id: "metamask",
-        isSmartWallet: false,
-      });
-      const oidcConnector = createMockConnector({
-        chainPlatform: "unified",
-        id: "google",
-        isOIDCBased: true,
-        isSmartWallet: true,
-      });
-      const { store } = createTestStore({
-        createConnector: vi
-          .fn()
-          .mockReturnValueOnce(externalConnector)
-          .mockReturnValueOnce(externalConnector)
-          .mockReturnValue(oidcConnector),
-      });
-
-      await store.getState().connectWallet("metamask");
-      await hydrateStore(store);
-      expect(store.getState().walletMode).toBe("external-wallet");
-
-      await store.getState().connectOIDCWallet("google");
-      expect(externalConnector.disconnect).toHaveBeenCalled();
-    });
-
-    it("disconnects smart wallets when connecting external OIDC wallet", async () => {
-      const smartConnector = createMockConnector({
-        chainPlatform: "unified",
-        id: "privy",
-        isSmartWallet: true,
-      });
-      const externalOIDCConnector = createMockConnector({
-        chainPlatform: "evm",
-        id: "oidc-external",
-        isOIDCBased: true,
-        isSmartWallet: false,
-      });
-      const { store } = createTestStore({
-        createConnector: vi
-          .fn()
-          .mockReturnValueOnce(smartConnector)
-          .mockReturnValueOnce(smartConnector)
-          .mockReturnValue(externalOIDCConnector),
-      });
-
-      await store.getState().connectWallet("privy");
-      await hydrateStore(store);
-      expect(store.getState().walletMode).toBe("smart-wallet");
-
-      await store.getState().connectOIDCWallet("oidc-external");
-      expect(smartConnector.disconnect).toHaveBeenCalled();
-    });
-
-    it("throws when not hydrated", async () => {
-      const { store } = createTestStore();
-
-      await expect(store.getState().connectOIDCWallet("test")).rejects.toThrow(
-        "OIDC wallet connections require hydration",
-      );
-    });
-  });
-
   describe("_hydrateWallets", () => {
     it("restores wallets from storage", async () => {
       const account = createMockAccount();
@@ -762,42 +498,6 @@ describe("createWalletStore", () => {
       await hydrateStore(store);
 
       expect(store.getState().isUserDisconnected).toBe(true);
-    });
-
-    it("skips OIDC connectors and removes them from storage", async () => {
-      const connector = createMockConnector({
-        id: "google",
-        isOIDCBased: true,
-      });
-      const persistent = createMockStorageDriver();
-      const session = createMockStorageDriver();
-      const storage = new WalletStorage({
-        keyPrefix: "test",
-        persistent,
-        session,
-      });
-
-      const wallets = new Map([
-        [
-          "unified" as ChainPlatform,
-          {
-            account: createMockAccount(),
-            connector: createMockConnector({ id: "google" }),
-          },
-        ],
-      ]);
-      await storage.setConnectedWallets(wallets);
-      const removeSpy = vi.spyOn(storage, "removeConnectedWallet");
-
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-        storage,
-      });
-
-      await hydrateStore(store);
-
-      expect(store.getState().connectedWallets.size).toBe(0);
-      expect(removeSpy).toHaveBeenCalledWith("unified");
     });
 
     it("handles connector.connect failure gracefully", async () => {
@@ -870,39 +570,6 @@ describe("createWalletStore", () => {
       await hydrateStore(store);
 
       expect(store.getState().connectedWallets.get("evm")?.account.walletAddress).toBe("0xSTORED");
-    });
-
-    it("sets correct wallet mode for external wallets", async () => {
-      const connector = createMockConnector({
-        id: "metamask",
-        isSmartWallet: false,
-      });
-      const persistent = createMockStorageDriver();
-      const session = createMockStorageDriver();
-      const storage = new WalletStorage({
-        keyPrefix: "test",
-        persistent,
-        session,
-      });
-
-      const wallets = new Map([
-        [
-          "evm" as ChainPlatform,
-          {
-            account: createMockAccount(),
-            connector: createMockConnector({ id: "metamask" }),
-          },
-        ],
-      ]);
-      await storage.setConnectedWallets(wallets);
-
-      const { store } = createTestStore({
-        createConnector: vi.fn().mockReturnValue(connector),
-        storage,
-      });
-
-      await hydrateStore(store);
-      expect(store.getState().walletMode).toBe("external-wallet");
     });
   });
 

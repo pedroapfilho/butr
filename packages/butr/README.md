@@ -8,9 +8,9 @@ npm install butr zustand react
 
 ## What it is
 
-`butr` is the small piece every multi-chain dApp ends up writing themselves: a state machine for "which wallet is the user connected with, on which chain, and how do I get a fresh signer when I need one." It gives you a Zustand store, a React provider, and ~25 hooks. It does not ship a UI, does not ship connectors, and does not ship an RPC client.
+`butr` is the small piece every multi-chain dApp ends up writing themselves: a state machine for "which wallet is the user connected with, on which chain, and how do I get a fresh signer when I need one." It gives you a Zustand store, a React provider, and a focused set of hooks. It does not ship a UI, does not ship connectors, and does not ship an RPC client.
 
-You bring connectors that fulfill a `UIConnector` interface — one for MetaMask, one for Phantom, one for your embedded wallet, one for the social-login SDK you happen to use — and `butr` orchestrates connection lifecycle, persistence, hydration, mode switching (smart vs. external wallets), and reactive lookups across all of them.
+You bring connectors that fulfill a `UIConnector` interface — one for MetaMask, one for Phantom, one per wallet SDK you use — and `butr` orchestrates connection lifecycle, persistence, hydration, and reactive lookups across all of them.
 
 ## Why it exists
 
@@ -93,19 +93,17 @@ const ConnectButton = () => {
 };
 ```
 
-That's the whole API surface for a basic flow. There are 24 more hooks for the multi-chain, multi-wallet, account-switching, mode-switching cases — see the full list below.
-
 ## Core concepts
 
 ### `UIConnector`
 
-The interface every connector must implement. Lifecycle: `connect`, `disconnect`, `getAccount`, `switchChain`, `switchAccount`. Capabilities: `getSigner`, `signMessage`, `signIn` (SIWE/SIWS), `sendTx`, `sendTxToChain`, `getTransactionReceipt`, `getBalance`. Optional flags: `isEmbedded`, `isSmartWallet`, `isOIDCBased`, `requiresAuth`, `authProvider`. For unified connectors that span platforms: `getAccountForPlatform`, `setActiveChainPlatform`.
+The interface every connector must implement. Lifecycle: `connect`, `disconnect`, `getAccount`, `switchChain`, `switchAccount`. Capabilities: `getSigner`, `signMessage`, `sendTx`, `sendTxToChain`, `getTransactionReceipt`, `getBalance`.
 
 `butr` never inspects the signer or transaction types — the connector returns `unknown` and the consumer casts. This is what keeps the package chain-agnostic.
 
 ### `WalletStore`
 
-Zustand-vanilla store under the hood. Tracks connected wallets keyed by `ChainPlatform` ("evm" | "svm" | "move" | "unified"), connection status, mode (smart vs external), hydration state, and a session-scoped disconnect-intent flag. You can subscribe to the raw store via `useWalletStore(selector)` for custom derivations.
+Zustand-vanilla store under the hood. Tracks connected wallets keyed by `ChainPlatform` (`"evm" | "svm"`), connection status, hydration state, and a session-scoped disconnect-intent flag. You can subscribe to the raw store via `useWalletStore(selector)` for custom derivations.
 
 ### `ChainBase`
 
@@ -135,28 +133,25 @@ Pluggable storage. Default `WalletStorage` uses two `StorageDriver`s: `persisten
 | `useWalletConnected`    | `boolean` (any wallet connected)                 |
 | `useHasAnyWallet`       | `boolean` (alias, same value)                    |
 | `useIsUserDisconnected` | session-scoped disconnect-intent flag            |
-| `useWalletMode`         | `"smart-wallet" \| "external-wallet" \| "none"`  |
 
 ### Wallet lookup hooks
 
-| Hook                               | Returns                                                                |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| `useConnectedWallets`              | `ConnectedWallet[]`                                                    |
-| `useConnectedWalletsMap`           | `Map<ChainPlatform, ConnectedWallet>`                                  |
-| `useConnectedWalletsMapByPlatform` | unified-aware map keyed by platform                                    |
-| `useGetWalletByPlatform`           | `(p: ChainPlatform) => ConnectedWallet \| undefined`                   |
-| `useGetWalletByChain`              | alias of above for readability at call sites                           |
-| `useGetWalletForOperation`         | same lookup, also calls `setActiveChainPlatform` on the connector      |
-| `useWalletForOperation(p)`         | reactive variant that re-renders only when the resolved wallet changes |
-| `useIsWalletConnected`             | `(p: ChainPlatform) => boolean`                                        |
-| `useGetConnectorInstance`          | `(id: string) => UIConnector \| null`                                  |
+| Hook                       | Returns                                                                |
+| -------------------------- | ---------------------------------------------------------------------- |
+| `useConnectedWallets`      | `ConnectedWallet[]`                                                    |
+| `useConnectedWalletsMap`   | `Map<ChainPlatform, ConnectedWallet>`                                  |
+| `useGetWalletByPlatform`   | `(p: ChainPlatform) => ConnectedWallet \| undefined`                   |
+| `useGetWalletByChain`      | alias of above for readability at call sites                           |
+| `useGetWalletForOperation` | platform-keyed lookup intended for operation call sites                |
+| `useWalletForOperation(p)` | reactive variant that re-renders only when the resolved wallet changes |
+| `useIsWalletConnected`     | `(p: ChainPlatform) => boolean`                                        |
+| `useGetConnectorInstance`  | `(id: string) => UIConnector \| null`                                  |
 
 ### Mutation hooks
 
 | Hook                       | Action                                                                                |
 | -------------------------- | ------------------------------------------------------------------------------------- |
 | `useConnectWallet`         | `(id, onSuccess?, onError?) => Promise<void>`                                         |
-| `useConnectOIDCWallet`     | same shape, gated on hydration (for OAuth-based providers)                            |
 | `useDisconnectWallet`      | `(p: ChainPlatform) => void`                                                          |
 | `useRefreshWallet`         | `(p: ChainPlatform) => void` (re-emits the wallet entry without changing the account) |
 | `useResetWallet`           | clears all wallets, fires `onReset`                                                   |
@@ -176,21 +171,21 @@ const { wallets, connected } = useWalletStore(
 
 ## Comparison
 
-| Library                          | Chain support              | What it ships                                                                 | Bundle                               | UI opinions              | Primitives vs product |
-| -------------------------------- | -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------ | ------------------------ | --------------------- |
-| **butr**                         | EVM, Solana, Move, unified | Connection state machine, 25 hooks, persistence, hydration, RN export         | **~7 kB gz** (peer: react + zustand) | None                     | Primitives            |
-| **wagmi**                        | EVM only                   | 40+ hooks, connectors, viem, TanStack Query integration                       | ~70 kB min+gz                        | None                     | Primitives            |
-| **@solana/wallet-adapter-react** | Solana only                | React context + hooks (`useWallet`, `useConnection`); UI in a sibling package | ~40–60 kB                            | Optional via `-react-ui` | Primitives            |
-| **RainbowKit**                   | EVM only (atop wagmi)      | Wallet modal, chain switcher, theming                                         | ~500 kB+ tree                        | Strong — ships modal     | Batteries-included UI |
-| **Reown AppKit** (Web3Modal)     | EVM, Solana, Bitcoin       | Modal UI, chain adapters, WalletConnect relay                                 | Large (lazy-loaded)                  | Very strong              | Product               |
-| **thirdweb**                     | EVM, Solana, 1000+ chains  | Full SDK: hooks, UI, in-app wallets, contracts, RPC, storage                  | Large                                | Ships UI                 | Product               |
-| **Privy**                        | EVM, Solana                | Auth + embedded wallets via TEE/SSS, hooks, login flows                       | Large                                | Some — login UI          | Auth + wallet product |
-| **Dynamic Labs**                 | EVM, Solana, others        | Auth + embedded wallets + connectors, plugin-based chains                     | Large (core ~11 MB unmin)            | Modal + login UI         | Auth + wallet product |
-| **viem / ethers**                | EVM only                   | Low-level RPC, ABI, signing — no wallet state, no React                       | viem ~35 kB gz; ethers ~88 kB gz     | None                     | Below butr's level    |
+| Library                          | Chain support             | What it ships                                                                 | Bundle                               | UI opinions              | Primitives vs product |
+| -------------------------------- | ------------------------- | ----------------------------------------------------------------------------- | ------------------------------------ | ------------------------ | --------------------- |
+| **butr**                         | EVM, Solana               | Connection state machine, hooks, persistence, hydration, RN export            | **~7 kB gz** (peer: react + zustand) | None                     | Primitives            |
+| **wagmi**                        | EVM only                  | 40+ hooks, connectors, viem, TanStack Query integration                       | ~70 kB min+gz                        | None                     | Primitives            |
+| **@solana/wallet-adapter-react** | Solana only               | React context + hooks (`useWallet`, `useConnection`); UI in a sibling package | ~40–60 kB                            | Optional via `-react-ui` | Primitives            |
+| **RainbowKit**                   | EVM only (atop wagmi)     | Wallet modal, chain switcher, theming                                         | ~500 kB+ tree                        | Strong — ships modal     | Batteries-included UI |
+| **Reown AppKit** (Web3Modal)     | EVM, Solana, Bitcoin      | Modal UI, chain adapters, WalletConnect relay                                 | Large (lazy-loaded)                  | Very strong              | Product               |
+| **thirdweb**                     | EVM, Solana, 1000+ chains | Full SDK: hooks, UI, in-app wallets, contracts, RPC, storage                  | Large                                | Ships UI                 | Product               |
+| **Privy**                        | EVM, Solana               | Auth + embedded wallets via TEE/SSS, hooks, login flows                       | Large                                | Some — login UI          | Auth + wallet product |
+| **Dynamic Labs**                 | EVM, Solana, others       | Auth + embedded wallets + connectors, plugin-based chains                     | Large (core ~11 MB unmin)            | Modal + login UI         | Auth + wallet product |
+| **viem / ethers**                | EVM only                  | Low-level RPC, ABI, signing — no wallet state, no React                       | viem ~35 kB gz; ethers ~88 kB gz     | None                     | Below butr's level    |
 
 ### What makes butr different
 
-- **Multi-chain from day one.** `wagmi` is EVM-only; `@solana/wallet-adapter` is Solana-only. `butr`'s connector abstraction is chain-agnostic and already covers EVM, Solana, Move, and cross-platform "unified" connectors.
+- **Multi-chain from day one.** `wagmi` is EVM-only; `@solana/wallet-adapter` is Solana-only. `butr`'s connector abstraction is chain-agnostic and covers EVM and Solana through one model.
 - **Bring your own connectors.** No connector implementations are bundled. You write a `UIConnector` for whatever wallet SDK you actually use, so there's no upstream coupling to WalletConnect, Phantom, MetaMask, or any specific provider.
 - **Genuinely headless.** RainbowKit and AppKit bundle a modal you can't easily skin past their brand. Privy and Dynamic ship login screens. `butr` ships zero UI, which means it composes with any design system without override fights.
 - **Smallest in its class.** ~7 kB gzipped, peer deps `react` + `zustand` only. RainbowKit, thirdweb, Privy, and Dynamic add hundreds of kilobytes to megabytes.

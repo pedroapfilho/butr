@@ -2,7 +2,6 @@
 
 import { ConnectionSection } from "../sections/connection";
 import { InternalsSection } from "../sections/internals";
-import { ModeSection } from "../sections/mode";
 import { WalletsSection } from "../sections/wallets";
 
 const Page = () => (
@@ -12,7 +11,6 @@ const Page = () => (
     </header>
     <ConnectionSection />
     <WalletsSection />
-    <ModeSection />
     <InternalsSection />
   </main>
 );

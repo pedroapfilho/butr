@@ -5,7 +5,6 @@ import {
   useConnectionError,
   useConnectionStatus,
   useConnectWallet,
-  useConnectOIDCWallet,
   useDisconnectWallet,
   useIsConnecting,
   useIsUserDisconnected,
@@ -26,7 +25,6 @@ const ConnectionSection = () => {
   const isUserDisconnected = useIsUserDisconnected();
 
   const connect = useConnectWallet();
-  const connectOIDC = useConnectOIDCWallet();
   const disconnect = useDisconnectWallet();
   const refresh = useRefreshWallet();
   const reset = useResetWallet();
@@ -59,11 +57,14 @@ const ConnectionSection = () => {
         <button onClick={() => connect("mock-evm")} type="button">
           Connect EVM
         </button>
-        <button onClick={() => connectOIDC("mock-oidc")} type="button">
-          Connect OIDC
+        <button onClick={() => connect("mock-svm")} type="button">
+          Connect SVM
         </button>
         <button onClick={() => disconnect("evm")} type="button">
           Disconnect EVM
+        </button>
+        <button onClick={() => disconnect("svm")} type="button">
+          Disconnect SVM
         </button>
         <button onClick={() => refresh("evm")} type="button">
           Refresh EVM

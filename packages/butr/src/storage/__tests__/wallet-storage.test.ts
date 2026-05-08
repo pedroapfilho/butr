@@ -219,7 +219,7 @@ describe("WalletStorage", () => {
       await persistent.setItem("test-connected-wallets", JSON.stringify({}));
       const { storage } = createStorage({ persistent });
 
-      await storage.removeConnectedWallet("move");
+      await storage.removeConnectedWallet("svm");
 
       const stored = JSON.parse((await persistent.getItem("test-connected-wallets")) as string);
       expect(stored).toEqual({});
@@ -227,37 +227,13 @@ describe("WalletStorage", () => {
   });
 
   describe("clearAll", () => {
-    it("removes both connected-wallets and wallet-mode keys", async () => {
+    it("removes the connected-wallets key", async () => {
       const { persistent, storage } = createStorage();
-      await storage.setWalletMode("smart-wallet");
       await storage.setConnectedWallets(new Map());
 
       await storage.clearAll();
 
       expect(await persistent.getItem("test-connected-wallets")).toBeNull();
-      expect(await persistent.getItem("test-wallet-mode")).toBeNull();
-    });
-  });
-
-  describe("getWalletMode / setWalletMode", () => {
-    it("returns 'none' when nothing stored", async () => {
-      const { storage } = createStorage();
-      expect(await storage.getWalletMode()).toBe("none");
-    });
-
-    it("returns the stored valid mode", async () => {
-      const { storage } = createStorage();
-      await storage.setWalletMode("smart-wallet");
-      expect(await storage.getWalletMode()).toBe("smart-wallet");
-    });
-
-    it("returns 'none' and clears for invalid stored mode", async () => {
-      const persistent = createMockStorageDriver();
-      await persistent.setItem("test-wallet-mode", "invalid-mode");
-      const { storage } = createStorage({ persistent });
-
-      expect(await storage.getWalletMode()).toBe("none");
-      expect(persistent.removeItem).toHaveBeenCalledWith("test-wallet-mode");
     });
   });
 
@@ -305,10 +281,8 @@ describe("WalletStorage", () => {
         session,
       });
 
-      await storage.setWalletMode("external-wallet");
       await storage.markUserDisconnected(true);
 
-      expect(await storage.getWalletMode()).toBe("external-wallet");
       expect(await storage.isUserDisconnected()).toBe(true);
 
       const account = createMockAccount();

@@ -1,13 +1,4 @@
-import type {
-  Account,
-  Balance,
-  ChainBase,
-  ChainPlatform,
-  ConnectorMeta,
-  SignInInput,
-  UIConnector,
-  WalletMode,
-} from "butr";
+import type { Account, Balance, ChainBase, ChainPlatform, ConnectorMeta, UIConnector } from "butr";
 
 const ETHEREUM_CHAIN: ChainBase = {
   id: "eip155:1",
@@ -16,38 +7,48 @@ const ETHEREUM_CHAIN: ChainBase = {
   reference: "1",
 };
 
-const FAKE_ADDRESS = "0xC0FFEE0000000000000000000000000000000000";
-const FAKE_OIDC_ADDRESS = "0xDECAF00000000000000000000000000000000000";
+const SOLANA_CHAIN: ChainBase = {
+  id: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+  name: "Solana",
+  namespace: "solana",
+  reference: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+};
+
+const FAKE_EVM_ADDRESS = "0xC0FFEE0000000000000000000000000000000000";
+const FAKE_SVM_ADDRESS = "MockS0LaNAAddre55F0rDem01111111111111111111";
 
 const wait = (ms: number) =>
   new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
 
-const buildAccount = (address: string): Account => ({
-  chain: ETHEREUM_CHAIN,
-  id: `evm:${address}`,
-  walletAddress: address,
-});
-
 type ConnectorOptions = {
   address: string;
+  chain: ChainBase;
+  chainPlatform: ChainPlatform;
+  decimals: number;
   delayMs: number;
   id: string;
   name: string;
-  oidc: boolean;
+  symbol: string;
+  unit: bigint;
 };
 
+const buildAccount = (address: string, chain: ChainBase): Account => ({
+  chain,
+  id: `${chain.namespace}:${address}`,
+  walletAddress: address,
+});
+
 const baseConnector = (opts: ConnectorOptions): UIConnector => {
-  const { address, delayMs, id, name, oidc } = opts;
+  const { address, chain, chainPlatform, decimals, delayMs, id, name, symbol, unit } = opts;
   let account: Account | null = null;
 
   return {
-    authProvider: oidc ? "google" : undefined,
-    chainPlatform: "evm" satisfies ChainPlatform,
+    chainPlatform,
     async connect() {
       await wait(delayMs);
-      account = buildAccount(address);
+      account = buildAccount(address, chain);
     },
     disconnect() {
       account = null;
@@ -58,22 +59,20 @@ const baseConnector = (opts: ConnectorOptions): UIConnector => {
     },
     getBalance(_mint?: string): Promise<Balance> {
       return Promise.resolve({
-        decimals: 18,
+        decimals,
         formatted: "1.0",
-        symbol: "ETH",
-        value: 1_000_000_000_000_000_000n,
+        symbol,
+        value: unit,
       });
     },
     getSigner() {
-      return Promise.resolve({ kind: "mock-signer" });
+      return Promise.resolve({ kind: `mock-${chainPlatform}-signer` });
     },
     getTransactionReceipt() {
       return Promise.resolve({ status: "Success" as const });
     },
     id,
-    isOIDCBased: oidc,
     name,
-    requiresAuth: oidc,
     sendTx() {
       return Promise.resolve("0xmocktx");
     },
@@ -81,15 +80,11 @@ const baseConnector = (opts: ConnectorOptions): UIConnector => {
       cb?.();
       return Promise.resolve("0xmocktx");
     },
-    signIn(input: SignInInput) {
-      const bytes = new TextEncoder().encode(input.statement ?? input.domain);
-      return Promise.resolve({ signature: bytes, signedMessage: bytes });
-    },
     signMessage(msg) {
       return Promise.resolve({ signature: msg, signedMessage: msg });
     },
     switchAccount(newAddress) {
-      account = buildAccount(newAddress);
+      account = buildAccount(newAddress, chain);
       return Promise.resolve();
     },
     switchChain(_chain) {
@@ -100,44 +95,43 @@ const baseConnector = (opts: ConnectorOptions): UIConnector => {
 
 const createMockEvmConnector = (): UIConnector =>
   baseConnector({
-    address: FAKE_ADDRESS,
+    address: FAKE_EVM_ADDRESS,
+    chain: ETHEREUM_CHAIN,
+    chainPlatform: "evm",
+    decimals: 18,
     delayMs: 500,
     id: "mock-evm",
-    name: "Mock EVM Wallet",
-    oidc: false,
+    name: "Mock MetaMask",
+    symbol: "ETH",
+    unit: 1_000_000_000_000_000_000n,
   });
 
-const createMockOIDCConnector = (): UIConnector =>
+const createMockSvmConnector = (): UIConnector =>
   baseConnector({
-    address: FAKE_OIDC_ADDRESS,
-    delayMs: 800,
-    id: "mock-oidc",
-    name: "Mock Google OIDC",
-    oidc: true,
+    address: FAKE_SVM_ADDRESS,
+    chain: SOLANA_CHAIN,
+    chainPlatform: "svm",
+    decimals: 9,
+    delayMs: 600,
+    id: "mock-svm",
+    name: "Mock Phantom",
+    symbol: "SOL",
+    unit: 1_000_000_000n,
   });
 
 const MOCK_CONNECTORS_META: Array<ConnectorMeta> = [
-  { chainPlatform: "evm", id: "mock-evm", name: "Mock EVM Wallet" },
-  { chainPlatform: "evm", id: "mock-oidc", name: "Mock Google OIDC" },
+  { chainPlatform: "evm", id: "mock-evm", name: "Mock MetaMask" },
+  { chainPlatform: "svm", id: "mock-svm", name: "Mock Phantom" },
 ];
 
 const createMockConnectorById = (id: string): UIConnector | null => {
   if (id === "mock-evm") {
     return createMockEvmConnector();
   }
-  if (id === "mock-oidc") {
-    return createMockOIDCConnector();
+  if (id === "mock-svm") {
+    return createMockSvmConnector();
   }
   return null;
 };
-
-// Type-marker references so WalletMode and ChainPlatform stay used after
-// removing the dummy export constants. Both are also referenced as types
-// elsewhere in this file, but keeping these explicit makes the intent obvious.
-const _typeMarkers: { mode: WalletMode; platforms: Array<ChainPlatform> } = {
-  mode: "none",
-  platforms: ["evm"],
-};
-void _typeMarkers;
 
 export { MOCK_CONNECTORS_META, createMockConnectorById };

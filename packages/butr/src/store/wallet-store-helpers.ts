@@ -4,7 +4,6 @@ import type {
   ConnectedWallet,
   UIConnector,
   WalletManagerConfig,
-  WalletMode,
 } from "../types";
 import type { WalletPersistence } from "../storage";
 
@@ -21,11 +20,6 @@ type WalletState = {
   connectionError: string | null;
   // Connection status tracking (for UI coordination)
   connectionStatus: ConnectionStatus;
-  connectOIDCWallet: (
-    id: string,
-    onSuccess?: (wallet: ConnectedWallet) => void,
-    onError?: (error: Error) => void,
-  ) => Promise<void>;
   // Public Actions
   connectWallet: (
     id: string,
@@ -51,7 +45,6 @@ type WalletState = {
   setConnectionStatus: (status: ConnectionStatus, connectorId?: string | null) => void;
 
   updateWalletAccount: (chainPlatform: ChainPlatform, newAccount: Account) => void;
-  walletMode: WalletMode;
   wallets: Array<ConnectedWallet>;
 };
 
@@ -62,9 +55,7 @@ type InternalWalletState = WalletState & {
 
   _markUserDisconnected: (value: boolean) => void;
   _persistConnectedWallets: (wallets: Map<ChainPlatform, ConnectedWallet>) => void;
-  _setWalletMode: (mode: WalletMode) => void;
   _storage: WalletPersistence;
-  _updateDerivedState: () => void;
 };
 
 type HydrateResult = {
@@ -72,7 +63,6 @@ type HydrateResult = {
   connectedWallets: Map<ChainPlatform, ConnectedWallet>;
   hasAnyWallet: boolean;
   isUserDisconnected: boolean;
-  walletMode: WalletMode;
   wallets: Array<ConnectedWallet>;
 };
 
@@ -89,19 +79,6 @@ const run = async (fn: () => Promise<void>, onError: (e: unknown) => void): Prom
   }
 };
 
-const resolveTargetKey = (
-  wallets: Map<ChainPlatform, ConnectedWallet>,
-  chainPlatform: ChainPlatform,
-): ChainPlatform | undefined => {
-  if (wallets.has(chainPlatform)) {
-    return chainPlatform;
-  }
-  if (chainPlatform === "evm" || chainPlatform === "svm") {
-    return "unified" as ChainPlatform;
-  }
-  return undefined;
-};
-
 const isProduction = (): boolean => {
   try {
     const proc = (globalThis as { process?: { env?: { NODE_ENV?: string } } }).process;
@@ -111,20 +88,16 @@ const isProduction = (): boolean => {
   }
 };
 
-/** Restores persisted wallets from storage and determines wallet mode. */
+/** Restores persisted wallets from storage. */
 const hydrateFromStorage = async (
   storage: WalletPersistence,
   createConnector: WalletManagerConfig["createConnector"],
 ): Promise<HydrateResult> => {
-  const [stored, persistedMode, userDisconnected] = await Promise.all([
+  const [stored, userDisconnected] = await Promise.all([
     storage.getConnectedWallets(),
-    storage.getWalletMode(),
     storage.isUserDisconnected(),
   ]);
   const walletsMap = new Map<ChainPlatform, ConnectedWallet>();
-
-  let hasSmartWallet = false;
-  let hasExternalWallet = false;
 
   for (const [platform, walletData] of Object.entries(stored)) {
     const isValidWalletData =
@@ -145,16 +118,6 @@ const hydrateFromStorage = async (
       continue;
     }
 
-    // Skip hydration for OIDC-based connectors (like Privy).
-    // They have their own session restoration flow.
-    if (connector.isOIDCBased) {
-      // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
-      await storage
-        .removeConnectedWallet(platform as ChainPlatform)
-        .catch(logStorageError("failed to remove OIDC entry"));
-      continue;
-    }
-
     try {
       // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
       await connector.connect();
@@ -166,12 +129,6 @@ const hydrateFromStorage = async (
         account: accountToUse,
         connector,
       });
-
-      if (connector.isSmartWallet) {
-        hasSmartWallet = true;
-      } else {
-        hasExternalWallet = true;
-      }
     } catch (error) {
       console.warn(`[butr] failed to restore connector ${walletData.connectorId}:`, error);
       // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
@@ -179,15 +136,6 @@ const hydrateFromStorage = async (
         .removeConnectedWallet(platform as ChainPlatform)
         .catch(logStorageError("failed to remove broken entry"));
     }
-  }
-
-  let walletMode: WalletMode = "none";
-  if (hasSmartWallet && !hasExternalWallet) {
-    walletMode = "smart-wallet";
-  } else if (hasExternalWallet && !hasSmartWallet) {
-    walletMode = "external-wallet";
-  } else if (walletsMap.size === 0) {
-    walletMode = persistedMode;
   }
 
   const wallets = [...walletsMap.values()];
@@ -198,10 +146,9 @@ const hydrateFromStorage = async (
     connectedWallets: walletsMap,
     hasAnyWallet,
     isUserDisconnected: userDisconnected,
-    walletMode,
     wallets,
   };
 };
 
 export type { ConnectionStatus, HydrateResult, InternalWalletState, WalletState };
-export { hydrateFromStorage, isProduction, logStorageError, resolveTargetKey, run };
+export { hydrateFromStorage, isProduction, logStorageError, run };

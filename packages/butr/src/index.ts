@@ -6,10 +6,8 @@ export type {
   ChainPlatform,
   ConnectedWallet,
   ConnectorMeta,
-  SignInInput,
   UIConnector,
   WalletManagerConfig,
-  WalletMode,
 } from "./types";
 
 // Store
@@ -35,8 +33,6 @@ export {
   useActiveConnectorId,
   useConnectedWallets,
   useConnectedWalletsMap,
-  useConnectedWalletsMapByPlatform,
-  useConnectOIDCWallet,
   useConnectionError,
   useConnectionStatus,
   useConnectWallet,
@@ -56,6 +52,5 @@ export {
   useUpdateWalletAccount,
   useWalletConnected,
   useWalletForOperation,
-  useWalletMode,
   useWalletStore,
 } from "./hooks";

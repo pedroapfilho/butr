@@ -1,7 +1,6 @@
 import {
   useConnectedWallets,
   useConnectedWalletsMap,
-  useConnectedWalletsMapByPlatform,
   useGetWalletByChain,
   useGetWalletByPlatform,
   useGetWalletForOperation,
@@ -27,13 +26,13 @@ const formatWallet = (w: ConnectedWallet | undefined) =>
 const WalletsSection = () => {
   const wallets = useConnectedWallets();
   const map = useConnectedWalletsMap();
-  const mapByPlatform = useConnectedWalletsMapByPlatform();
   const hasAny = useHasAnyWallet();
   const isWalletConnected = useIsWalletConnected();
   const getByChain = useGetWalletByChain();
   const getByPlatform = useGetWalletByPlatform();
   const getForOperation = useGetWalletForOperation();
-  const reactiveWallet = useWalletForOperation("evm");
+  const reactiveEvm = useWalletForOperation("evm");
+  const reactiveSvm = useWalletForOperation("svm");
   const updateAccount = useUpdateWalletAccount();
 
   const rotateAccount = () => {
@@ -51,15 +50,16 @@ const WalletsSection = () => {
       <ul>
         <li>has any: {String(hasAny)}</li>
         <li>is evm connected: {String(isWalletConnected("evm"))}</li>
+        <li>is svm connected: {String(isWalletConnected("svm"))}</li>
         <li>
           list ({wallets.length}): {wallets.map((w) => w.connector.id).join(", ") || "none"}
         </li>
         <li>by chain (evm): {formatWallet(getByChain("evm"))}</li>
-        <li>by platform (evm): {formatWallet(getByPlatform("evm"))}</li>
+        <li>by platform (svm): {formatWallet(getByPlatform("svm"))}</li>
         <li>for operation (evm): {formatWallet(getForOperation("evm"))}</li>
-        <li>reactive evm: {formatWallet(reactiveWallet)}</li>
-        <li>map size: {map.size}</li>
-        <li>map-by-platform keys: {[...mapByPlatform.keys()].join(", ") || "none"}</li>
+        <li>reactive evm: {formatWallet(reactiveEvm)}</li>
+        <li>reactive svm: {formatWallet(reactiveSvm)}</li>
+        <li>map keys: {[...map.keys()].join(", ") || "none"}</li>
       </ul>
       <button onClick={rotateAccount} type="button">
         Rotate active EVM account
