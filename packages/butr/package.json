@@ -62,7 +62,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@repo/config-vitest": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "^19.0.0",
     "react": "^19.0.0",

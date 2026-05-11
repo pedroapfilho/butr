@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 import { useStoreWithEqualityFn } from "zustand/traditional";
 import { useWalletStoreContext } from "./context";
 import type { Balance, ConnectedWallet } from "./types";
@@ -8,6 +8,41 @@ type AsyncState<T> =
   | { data: null; error: null; status: "loading" }
   | { data: T; error: null; status: "success" }
   | { data: null; error: unknown; status: "error" };
+
+type AsyncAction<T> =
+  | { type: "reset" }
+  | { type: "load" }
+  | { data: T; type: "success" }
+  | { error: unknown; type: "error" };
+
+/** Pure async-lifecycle reducer. One dispatch per state transition
+ *  keeps `useEffect` clear of cascading setState calls — each effect
+ *  branch invokes the reducer exactly once. */
+const asyncReducer = <T>(_state: AsyncState<T>, action: AsyncAction<T>): AsyncState<T> => {
+  switch (action.type) {
+    case "reset": {
+      return { data: null, error: null, status: "idle" };
+    }
+    case "load": {
+      return { data: null, error: null, status: "loading" };
+    }
+    case "success": {
+      return { data: action.data, error: null, status: "success" };
+    }
+    case "error": {
+      return { data: null, error: action.error, status: "error" };
+    }
+    default: {
+      // Exhaustiveness check — TS errors here if `AsyncAction` grows
+      // a variant without a case.
+      const _exhaustive: never = action;
+      void _exhaustive;
+      return { data: null, error: null, status: "idle" };
+    }
+  }
+};
+
+const IDLE: AsyncState<never> = { data: null, error: null, status: "idle" };
 
 const walletEqual = (a: ConnectedWallet | undefined, b: ConnectedWallet | undefined) => {
   if (a === b) {
@@ -51,30 +86,24 @@ const useWalletEntry = (connectorId: string | null | undefined) => {
  */
 const useSigner = (connectorId?: string | null): AsyncState<unknown> => {
   const wallet = useWalletEntry(connectorId);
-  const [state, setState] = useState<AsyncState<unknown>>({
-    data: null,
-    error: null,
-    status: "idle",
-  });
+  const [state, dispatch] = useReducer(asyncReducer<unknown>, IDLE);
 
   useEffect(() => {
     if (!wallet) {
-      // oxlint-disable-next-line react-hooks-js/set-state-in-effect -- canonical "fetch when dep changes" pattern; the setState marks the lifecycle phase consumers observe
-      setState({ data: null, error: null, status: "idle" });
+      dispatch({ type: "reset" });
       return;
     }
-    // oxlint-disable-next-line react-hooks-js/set-state-in-effect -- canonical "fetch when dep changes" pattern; loading state is what consumers render while the await runs
-    setState({ data: null, error: null, status: "loading" });
+    dispatch({ type: "load" });
     let cancelled = false;
     void (async () => {
       try {
         const signer = await wallet.connector.getSigner();
         if (!cancelled) {
-          setState({ data: signer, error: null, status: "success" });
+          dispatch({ data: signer, type: "success" });
         }
       } catch (error: unknown) {
         if (!cancelled) {
-          setState({ data: null, error, status: "error" });
+          dispatch({ error, type: "error" });
         }
       }
     })();
@@ -98,34 +127,28 @@ type UseBalanceResult = AsyncState<Balance> & { refetch: () => void };
  */
 const useBalance = (connectorId?: string | null, mint?: string): UseBalanceResult => {
   const wallet = useWalletEntry(connectorId);
-  const [state, setState] = useState<AsyncState<Balance>>({
-    data: null,
-    error: null,
-    status: "idle",
-  });
-  const [counter, setCounter] = useState(0);
+  const [state, dispatch] = useReducer(asyncReducer<Balance>, IDLE);
+  const [counter, bumpCounter] = useReducer((n: number) => n + 1, 0);
   const refetch = useCallback(() => {
-    setCounter((n) => n + 1);
+    bumpCounter();
   }, []);
 
   useEffect(() => {
     if (!wallet) {
-      // oxlint-disable-next-line react-hooks-js/set-state-in-effect -- canonical "fetch when dep changes" pattern; the setState marks the lifecycle phase consumers observe
-      setState({ data: null, error: null, status: "idle" });
+      dispatch({ type: "reset" });
       return;
     }
-    // oxlint-disable-next-line react-hooks-js/set-state-in-effect -- canonical "fetch when dep changes" pattern; loading state is what consumers render while the await runs
-    setState({ data: null, error: null, status: "loading" });
+    dispatch({ type: "load" });
     let cancelled = false;
     void (async () => {
       try {
         const balance = await wallet.connector.getBalance(mint);
         if (!cancelled) {
-          setState({ data: balance, error: null, status: "success" });
+          dispatch({ data: balance, type: "success" });
         }
       } catch (error: unknown) {
         if (!cancelled) {
-          setState({ data: null, error, status: "error" });
+          dispatch({ error, type: "error" });
         }
       }
     })();

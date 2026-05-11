@@ -59,6 +59,38 @@ const isProduction = (): boolean => {
   }
 };
 
+type RestoreOutcome =
+  | { connectorId: string; entry: ConnectedWallet; kind: "ok" }
+  | { connectorId: string; error: unknown; kind: "fail" };
+
+/** Restore a single wallet from a stored pool entry. Self-contained so
+ *  the hydration loop can run every entry concurrently — each call's
+ *  only side effect is the local `pool.set()` the outer function does
+ *  after the promise resolves. */
+const restoreOneEntry = async (
+  connectorId: string,
+  entry: { account: Account; accounts: ReadonlyArray<Account> },
+  connector: Connector,
+): Promise<RestoreOutcome> => {
+  try {
+    await connector.connect();
+    const freshAccount = await connector.getAccount();
+    const accountToUse = freshAccount || entry.account;
+    const accounts = await resolveHydratedAccounts(connector, entry.accounts, accountToUse);
+    return {
+      connectorId,
+      entry: {
+        account: accountToUse,
+        accounts,
+        connector: connector as ConnectedWallet["connector"],
+      },
+      kind: "ok",
+    };
+  } catch (error) {
+    return { connectorId, error, kind: "fail" };
+  }
+};
+
 /** Restores persisted wallets (pool + selection + active) from storage.
  *  Drops entries whose connector cannot be re-instantiated or fails to connect. */
 const hydrateFromStorage = async (
@@ -74,6 +106,9 @@ const hydrateFromStorage = async (
 
   const pool = new Map<string, ConnectedWallet>();
 
+  // Build the restore-task list, instantiating connectors up front so a
+  // missing factory is logged before the parallel work starts.
+  const tasks: Array<Promise<RestoreOutcome>> = [];
   for (const [connectorId, entry] of Object.entries(storedPool)) {
     if (!entry) {
       continue;
@@ -83,28 +118,25 @@ const hydrateFromStorage = async (
       console.warn(`[butr] could not instantiate connector ${connectorId}`);
       continue;
     }
-    try {
-      // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
-      await connector.connect();
-      // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
-      const freshAccount = await connector.getAccount();
-      const accountToUse = freshAccount || entry.account;
-      // Pull the full known-accounts list when the connector supports it,
-      // otherwise fall back to the stored list (or the active account alone).
-      // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
-      const accounts = await resolveHydratedAccounts(connector, entry.accounts, accountToUse);
-      pool.set(connectorId, {
-        account: accountToUse,
-        accounts,
-        connector,
-      });
-    } catch (error) {
-      console.warn(`[butr] failed to restore connector ${connectorId}:`, error);
-      // oxlint-disable-next-line no-await-in-loop -- wallets must restore sequentially; each may fail independently
-      await storage
-        .removePoolEntry(connectorId)
-        .catch(logStorageError("failed to remove broken entry"));
+    tasks.push(restoreOneEntry(connectorId, entry, connector));
+  }
+
+  // Restore every wallet in parallel. Each entry is independent — the
+  // only shared state is `pool`, which is a local Map mutated after
+  // each task resolves. Failures don't poison neighbours (we ran with
+  // Promise.allSettled-style semantics via the typed RestoreOutcome).
+  const outcomes = await Promise.all(tasks);
+  for (const outcome of outcomes) {
+    if (outcome.kind === "ok") {
+      pool.set(outcome.connectorId, outcome.entry);
+      continue;
     }
+    console.warn(`[butr] failed to restore connector ${outcome.connectorId}:`, outcome.error);
+    // Best-effort cleanup; persistence errors here aren't fatal.
+    void run(
+      () => storage.removePoolEntry(outcome.connectorId),
+      logStorageError("failed to remove broken entry"),
+    );
   }
 
   // Reconcile selection: drop stale entries.
@@ -138,5 +170,4 @@ const hydrateFromStorage = async (
   };
 };
 
-export type { HydrateResult };
 export { hydrateFromStorage, isProduction, logStorageError, run };

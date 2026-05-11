@@ -326,6 +326,5 @@ const createWalletStore = (config: WalletManagerConfig) => {
   );
 };
 
-export type { ConnectionStatus } from "./reducer";
 export type { WalletStore, WalletStoreState };
 export { createWalletStore };

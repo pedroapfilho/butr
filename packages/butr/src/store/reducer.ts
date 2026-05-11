@@ -260,4 +260,4 @@ const reducer = (state: State, event: Event): State => {
 };
 
 export type { ConnectionStatus, Event, State };
-export { findConnectorForPlatform, initialState, reducer };
+export { initialState, reducer };

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, use, useEffect, useMemo, useRef, useState } from "react";
 import { type DiscoverOptions, discoverWalletAdapters } from "./auto/discover";
 import type { WalletAdapter, WalletManagerConfig } from "./types";
 import { type WalletStore, createWalletStore } from "./store";
@@ -156,7 +156,7 @@ const WalletManagerProvider: React.FC<WalletManagerProviderProps> = (props) => {
 
 /** Hook to get the store from context (internal) */
 const useWalletStoreContext = () => {
-  const store = useContext(WalletStoreContext);
+  const store = use(WalletStoreContext);
   if (!store) {
     throw new Error("useWalletStoreContext must be used within WalletManagerProvider");
   }
@@ -169,8 +169,7 @@ const useWalletStoreContext = () => {
  * an empty array in manual mode — auto-discovery is opt-in via the
  * `auto` prop on `WalletManagerProvider`.
  */
-const useDiscoveredWallets = (): ReadonlyArray<WalletAdapter> =>
-  useContext(DiscoveredWalletsContext);
+const useDiscoveredWallets = (): ReadonlyArray<WalletAdapter> => use(DiscoveredWalletsContext);
 
 export type { AutoProviderProps, ManualProviderProps, WalletManagerProviderProps };
 export { WalletManagerProvider, useDiscoveredWallets, useWalletStoreContext };

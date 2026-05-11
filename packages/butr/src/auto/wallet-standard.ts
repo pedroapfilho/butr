@@ -31,13 +31,14 @@ const discoverSvmAdapters = (onAdapter: (adapter: WalletAdapter) => void): (() =
     let mod: WalletStandardAppModule;
     try {
       // Dynamic import: only resolved when SVM discovery is exercised.
-      // The cast tells TS to trust our minimal type surface (see
-      // wallet-standard-types.ts) rather than pulling in the real
-      // package's types as a devDep. The ts-expect-error is required
-      // because the module is an OPTIONAL peer dependency — it may
-      // not be installed at all, in which case the import throws and
-      // we fall through to the catch.
-      // @ts-expect-error -- optional peer dep `@wallet-standard/app`
+      // The cast narrows the loose ambient declaration (see
+      // `wallet-standard-types.ts`) into the precise minimal surface
+      // butr's adapter relies on. The ambient declaration means
+      // TypeScript always resolves the module name at compile time,
+      // regardless of whether the optional peer dep is installed —
+      // no `@ts-expect-error`/`@ts-ignore` needed. At runtime, the
+      // import either succeeds (peer dep installed) or throws (peer
+      // dep absent), and the catch below handles the latter.
       mod = (await import("@wallet-standard/app")) as unknown as WalletStandardAppModule;
     } catch {
       // @wallet-standard/app not installed. SVM discovery is disabled;

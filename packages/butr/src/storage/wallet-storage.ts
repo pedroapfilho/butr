@@ -216,9 +216,15 @@ class WalletStorage implements WalletPersistence {
   // ---- Bulk clear ----
 
   async clearAll(): Promise<void> {
-    await this.persistent.removeItem(this.poolKey);
-    await this.persistent.removeItem(this.selectionKey);
-    await this.persistent.removeItem(this.activeKey);
+    // Three independent removeItem calls — run them concurrently
+    // instead of awaiting in sequence. Drivers with async I/O
+    // (AsyncStorage, MMKV, IndexedDB-wrapped) benefit; sync drivers
+    // (localStorage, memory) just collapse to immediate resolves.
+    await Promise.all([
+      this.persistent.removeItem(this.poolKey),
+      this.persistent.removeItem(this.selectionKey),
+      this.persistent.removeItem(this.activeKey),
+    ]);
   }
 
   // ---- Disconnect intent ----
