@@ -255,6 +255,81 @@ const { pool, activeConnectorId } = useWalletStore(
 );
 ```
 
+## Auto mode (`butr/auto`)
+
+Sub-path export that adds wallet auto-discovery via [EIP-6963](https://eips.ethereum.org/EIPS/eip-6963) (EVM) and the [Wallet Standard](https://github.com/wallet-standard/wallet-standard) (Solana, stubbed). Opt-in — the core `butr` import stays adapter-free.
+
+Drop in `AutoWalletManagerProvider` instead of `WalletManagerProvider` and your app picks up every EIP-6963 wallet the browser announces, no `connectors`/`createConnector` wiring required:
+
+```tsx
+import { AutoWalletManagerProvider, useDiscoveredWallets } from "butr/auto";
+import { useConnectWallet, useConnectionStatus } from "butr";
+
+const App = () => (
+  <AutoWalletManagerProvider>
+    <WalletPicker />
+  </AutoWalletManagerProvider>
+);
+
+const WalletPicker = () => {
+  const wallets = useDiscoveredWallets();
+  const connect = useConnectWallet();
+  const status = useConnectionStatus();
+
+  return (
+    <ul>
+      {wallets.map((w) => (
+        <li key={w.id}>
+          <button onClick={() => connect(w.id)} disabled={status === "connecting"}>
+            Connect {w.name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+```
+
+Adapter IDs come from each wallet's `rdns` field (`io.metamask`, `io.rabby`, `app.phantom`) — stable across page loads.
+
+### What's covered
+
+| Surface               | Discovery               | Adapter                                    | Status                                           |
+| --------------------- | ----------------------- | ------------------------------------------ | ------------------------------------------------ |
+| EVM (EIP-6963)        | EIP-6963 announcements  | EIP-1193 → `WalletAdapter`                 | Implemented                                      |
+| SVM (Wallet Standard) | `getWallets()` registry | Wallet Standard features → `WalletAdapter` | **Stub** — `discoverSvmAdapters` returns a no-op |
+
+Solana is deliberately stubbed for now (needs `@wallet-standard/app` as a peer dep + real-wallet fixtures). Until it lands, Solana wallets still wire manually via `WalletManagerConfig.createConnector`. EVM wallets that also announce on EIP-6963 (Phantom, for instance) get auto-discovered today.
+
+### Caveats on the EVM auto-adapter
+
+The EIP-1193 → `WalletAdapter` conversion lives in [`buildEvmAdapter`](src/auto/eip6963-adapter.ts). A few things behave differently from a hand-written adapter:
+
+- `disconnect()` calls `wallet_revokePermissions`. Many wallets don't implement it and silently ignore the call — butr's reducer still marks the wallet as disconnected on its side.
+- `switchAccount()` calls `wallet_requestPermissions` (no standardised "switch to address X" RPC exists). The wallet reopens its account picker; the user chooses.
+- `getBalance()` reports native ETH with `symbol: "ETH"` regardless of which EVM chain is active. Consumers targeting multiple chains overlay the symbol themselves.
+- `getSigner()` returns the raw EIP-1193 provider. Wrap with `viem.createWalletClient` / `ethers.BrowserProvider` at the call site.
+
+### Lower-level building blocks
+
+The sub-path also exports the pure functions for callers who want to compose discovery into their own provider:
+
+```ts
+import {
+  discoverEvmAdapters,
+  discoverWalletAdapters,
+  buildEvmAdapter,
+  type Eip1193Provider,
+  type Eip6963ProviderInfo,
+} from "butr/auto";
+
+const unsubscribe = discoverEvmAdapters((adapter, info) => {
+  console.log("found", info.rdns, "→", adapter);
+});
+```
+
+`discoverEvmAdapters` accepts an optional `{ target: EventTarget }` for environments where listening on `window` isn't appropriate (iframes, tests).
+
 ## Comparison
 
 | Library                          | Chain support             | What it ships                                                                 | Bundle                                | UI opinions              | Primitives vs product |

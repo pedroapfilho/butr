@@ -41,6 +41,12 @@
       "react-native": "./dist/esm/index.js",
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./auto": {
+      "types": "./dist/esm/auto/index.d.ts",
+      "react-native": "./dist/esm/auto/index.js",
+      "import": "./dist/esm/auto/index.js",
+      "require": "./dist/cjs/auto/index.js"
     }
   },
   "scripts": {
