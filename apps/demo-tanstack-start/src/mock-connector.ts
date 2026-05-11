@@ -5,7 +5,7 @@ import type {
   ChainPlatform,
   ConnectorEvent,
   ConnectorMeta,
-  UIConnector,
+  WalletAdapter,
 } from "butr";
 
 const ETHEREUM_CHAIN: ChainBase = {
@@ -56,7 +56,7 @@ const buildAccount = (address: string, chain: ChainBase): Account => ({
  * (account swap, external disconnect) so the subscription bridge
  * can be exercised from the UI.
  */
-type MockConnectorHandle = UIConnector & {
+type MockConnectorHandle = WalletAdapter & {
   __emit: (event: ConnectorEvent) => void;
 };
 
@@ -212,7 +212,7 @@ const MOCK_CONNECTORS_META: Array<ConnectorMeta> = [
   },
 ];
 
-const createMockConnectorById = (id: string): UIConnector | null => {
+const createMockConnectorById = (id: string): WalletAdapter | null => {
   if (id === "mock-evm") {
     return createMockEvmConnector();
   }

@@ -10,7 +10,7 @@ export type {
   Connector,
   ConnectorEvent,
   ConnectorMeta,
-  UIConnector,
+  WalletAdapter,
   Wallet,
   WalletAvailability,
   WalletManagerConfig,

@@ -46,7 +46,7 @@ type ConnectorEvent = { account: Account; type: "accountChanged" } | { type: "di
 /**
  * Orchestration interface — what `butr` actually calls during the
  * connect / disconnect / hydrate flow. This is the contract `butr`
- * cares about; everything else on `UIConnector` is consumer-facing.
+ * cares about; everything else on `WalletAdapter` is consumer-facing.
  */
 type Connector = {
   chainPlatform: ChainPlatform;
@@ -120,7 +120,7 @@ type Wallet = {
  *  - `Connector` is what butr calls.
  *  - `Wallet` is what your app code calls on a connected wallet.
  */
-type UIConnector = Connector & Wallet;
+type WalletAdapter = Connector & Wallet;
 
 type ConnectedWallet = {
   /** Currently-active account on this wallet. */
@@ -129,7 +129,7 @@ type ConnectedWallet = {
    *  Always contains at least `account`. Populated from `getAccounts()`
    *  if the connector implements it; otherwise `[account]`. */
   accounts: Array<Account>;
-  connector: UIConnector;
+  connector: WalletAdapter;
 };
 
 type ConnectorMeta = {
@@ -151,7 +151,7 @@ type WalletManagerConfig = {
   /** Available connector metadata */
   connectors: Array<ConnectorMeta>;
   /** Function to instantiate a connector by ID */
-  createConnector: (id: string) => UIConnector | null;
+  createConnector: (id: string) => WalletAdapter | null;
   /** Called after a wallet is successfully connected */
   onConnect?: (wallet: ConnectedWallet) => void;
   /** Called after a wallet is disconnected */
@@ -172,7 +172,7 @@ export type {
   Connector,
   ConnectorEvent,
   ConnectorMeta,
-  UIConnector,
+  WalletAdapter,
   Wallet,
   WalletAvailability,
   WalletManagerConfig,

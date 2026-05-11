@@ -1,5 +1,11 @@
 import { vi } from "vitest";
-import type { Account, ChainBase, ChainPlatform, UIConnector, WalletManagerConfig } from "../types";
+import type {
+  Account,
+  ChainBase,
+  ChainPlatform,
+  WalletAdapter,
+  WalletManagerConfig,
+} from "../types";
 import type { StorageDriver } from "../storage/persistence";
 
 const createMockChain = (overrides?: Partial<ChainBase>): ChainBase => ({
@@ -17,7 +23,7 @@ const createMockAccount = (overrides?: Partial<Account>): Account => ({
   ...overrides,
 });
 
-const createMockConnector = (overrides?: Partial<UIConnector>): UIConnector => ({
+const createMockConnector = (overrides?: Partial<WalletAdapter>): WalletAdapter => ({
   chainPlatform: "evm" as ChainPlatform,
   connect: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn().mockResolvedValue(undefined),

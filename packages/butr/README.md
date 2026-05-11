@@ -10,7 +10,7 @@ npm install butr zustand react
 
 `butr` is the small piece every multi-chain dApp ends up writing themselves: a state machine for "which wallet is the user connected with, on which chain, and how do I get a fresh signer when I need one." It gives you a Zustand store, a React provider, and a focused set of hooks. It does not ship a UI, does not ship connectors, and does not ship an RPC client.
 
-You bring connectors that fulfill a `UIConnector` interface — one for MetaMask, one for Phantom, one per wallet SDK you use — and `butr` orchestrates connection lifecycle, persistence, hydration, and reactive lookups across all of them.
+You bring connectors that fulfill a `WalletAdapter` interface — one for MetaMask, one for Phantom, one per wallet SDK you use — and `butr` orchestrates connection lifecycle, persistence, hydration, and reactive lookups across all of them.
 
 ## Why it exists
 
@@ -28,13 +28,13 @@ import {
   useConnectWallet,
   useConnectedWallets,
   useConnectionStatus,
-  type UIConnector,
+  type WalletAdapter,
   type WalletManagerConfig,
 } from "butr";
 
 // 1. Define your connectors. butr does not ship any — you adapt
-//    whatever wallet SDKs you actually use to the UIConnector shape.
-const myMetaMaskConnector: UIConnector = {
+//    whatever wallet SDKs you actually use to the WalletAdapter shape.
+const myMetaMaskConnector: WalletAdapter = {
   id: "metamask",
   name: "MetaMask",
   chainPlatform: "evm",
@@ -95,14 +95,14 @@ const ConnectButton = () => {
 
 ## Core concepts
 
-### `UIConnector`
+### `WalletAdapter`
 
 The interface every connector must implement. Conceptually it's the intersection of two smaller interfaces — the seam is documentary, but it makes "what `butr` calls" vs. "what your app calls" explicit:
 
 - **`Connector`** — orchestration, what `butr` itself invokes during connect / disconnect / hydrate: `id`, `name`, `chainPlatform`, `connect`, `disconnect`, `getAccount`. Optional: `getAccounts` (multi-account wallets), `subscribe` (bridge wallet-side events into the store).
 - **`Wallet`** — capabilities, what your app calls on a connected wallet: `getSigner`, `signMessage`, `sendTx`, `sendTxToChain`, `getTransactionReceipt`, `getBalance`, `switchAccount`, `switchChain`.
 
-`UIConnector = Connector & Wallet`. `butr` never inspects the signer or transaction types — the connector returns `unknown` and the consumer casts. That's what keeps the package chain-agnostic.
+`WalletAdapter = Connector & Wallet`. `butr` never inspects the signer or transaction types — the connector returns `unknown` and the consumer casts. That's what keeps the package chain-agnostic.
 
 ### Wallet-side events: `Connector.subscribe`
 
@@ -204,7 +204,7 @@ if (error?.kind === "UserRejected") {
 | ------------------------- | ----------------------------------------------------------- |
 | `useGetWallet`            | `(connectorId: string) => ConnectedWallet \| undefined`     |
 | `useGetSelectedWallet`    | `(platform: ChainPlatform) => ConnectedWallet \| undefined` |
-| `useGetConnectorInstance` | `(id: string) => UIConnector \| null`                       |
+| `useGetConnectorInstance` | `(id: string) => WalletAdapter \| null`                     |
 
 ### Async hooks (signer + balance)
 
@@ -272,7 +272,7 @@ const { pool, activeConnectorId } = useWalletStore(
 ### What makes butr different
 
 - **Multi-chain from day one.** `wagmi` is EVM-only; `@solana/wallet-adapter` is Solana-only. `butr`'s connector abstraction is chain-agnostic and covers EVM and Solana through one model.
-- **Bring your own connectors.** No connector implementations are bundled. You write a `UIConnector` for whatever wallet SDK you actually use, so there's no upstream coupling to WalletConnect, Phantom, MetaMask, or any specific provider.
+- **Bring your own connectors.** No connector implementations are bundled. You write a `WalletAdapter` for whatever wallet SDK you actually use, so there's no upstream coupling to WalletConnect, Phantom, MetaMask, or any specific provider.
 - **Genuinely headless.** RainbowKit and AppKit bundle a modal you can't easily skin past their brand. Privy and Dynamic ship login screens. `butr` ships zero UI, which means it composes with any design system without override fights.
 - **Smallest in its class.** ~10 kB gzipped, peer deps `react` + `zustand` only. RainbowKit, thirdweb, Privy, and Dynamic add hundreds of kilobytes to megabytes.
 - **Runs everywhere React runs.** A `react-native` export condition and pluggable storage drivers (browser + memory) mean the same package works in browsers, React Native, and SSR — no separate adapters.
