@@ -494,6 +494,8 @@ The EIP-1193 → `WalletAdapter` conversion lives in [`buildEvmAdapter`](src/aut
 
 Wallet implementations of EIP-1193 / EIP-2255 / Wallet Standard diverge in practice. This is the matrix we've verified — `capabilities` flags on the auto-built adapters mirror this knowledge so consumers don't render UI for affordances that wouldn't do anything.
 
+**Injected fallback** — for EVM wallets that don't announce via EIP-6963 (regional/legacy injected providers like KuCoin, Bitget, BitKeep, Frontier, Okto), butr ships a last-resort `discoverInjectedAdapter` that waits ~150ms for EIP-6963 announcements, then if none have fired and `window.ethereum` exists, emits a generic "Browser wallet" adapter with `rdns: "injected:legacy"`. Default-on when `auto: true`; opt-out via `auto: { evm: true, injected: false }`.
+
 **EVM wallets (EIP-6963 discovery)**
 
 | Wallet | `rdns` | `requestAccounts` reopens picker? | Notes |
