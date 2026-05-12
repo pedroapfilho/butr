@@ -162,11 +162,7 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
       </View>
       <View style={styles.dlRow}>
         <Text style={styles.dt}>Address</Text>
-        {wallet.accounts.length > 1 ? (
-          <AccountPicker wallet={wallet} />
-        ) : (
-          <Text style={styles.dd}>{wallet.account.walletAddress}</Text>
-        )}
+        <AccountPicker wallet={wallet} />
       </View>
       <View style={styles.dlRow}>
         <Text style={styles.dt}>Balance</Text>
@@ -239,6 +235,7 @@ const SIGN_MESSAGE_TEXT = "Hello from the butr demo";
 
 const AccountRow = ({ account, wallet }: { account: Account; wallet: ConnectedWallet }) => {
   const isCurrent = account.walletAddress === wallet.account.walletAddress;
+  const canSign = wallet.connector.capabilities.signMessage;
   const [state, setState] = useState<SignState>({ kind: "idle" });
 
   const handleSign = async () => {
@@ -260,22 +257,24 @@ const AccountRow = ({ account, wallet }: { account: Account; wallet: ConnectedWa
       <Text style={isCurrent ? styles.accountAddressActive : styles.accountAddress}>
         {account.walletAddress}
       </Text>
-      <View style={styles.accountRowActions}>
-        {state.kind === "ok" ? (
-          <Text style={styles.signOk}>✓ signed</Text>
-        ) : state.kind === "error" ? (
-          <Text style={styles.signError}>✗ failed</Text>
-        ) : null}
-        <Pressable
-          disabled={state.kind === "signing"}
-          onPress={() => {
-            void handleSign();
-          }}
-          style={styles.signButton}
-        >
-          <Text style={styles.signButtonText}>{state.kind === "signing" ? "…" : "Sign"}</Text>
-        </Pressable>
-      </View>
+      {canSign ? (
+        <View style={styles.accountRowActions}>
+          {state.kind === "ok" ? (
+            <Text style={styles.signOk}>✓ signed</Text>
+          ) : state.kind === "error" ? (
+            <Text style={styles.signError}>✗ failed</Text>
+          ) : null}
+          <Pressable
+            disabled={state.kind === "signing"}
+            onPress={() => {
+              void handleSign();
+            }}
+            style={styles.signButton}
+          >
+            <Text style={styles.signButtonText}>{state.kind === "signing" ? "…" : "Sign"}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 };

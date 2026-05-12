@@ -142,11 +142,7 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
       <dl className="grid grid-cols-[120px_1fr] gap-y-1.5 text-sm">
         <dt className="text-neutral-500">Address</dt>
         <dd>
-          {wallet.accounts.length > 1 ? (
-            <AccountPicker wallet={wallet} />
-          ) : (
-            <span className="break-all font-mono text-xs">{wallet.account.walletAddress}</span>
-          )}
+          <AccountPicker wallet={wallet} />
         </dd>
         <dt className="text-neutral-500">Balance</dt>
         <dd className="font-mono text-xs">{balanceText}</dd>
@@ -222,6 +218,7 @@ const SIGN_MESSAGE_TEXT = "Hello from the butr demo";
 
 const AccountRow = ({ account, wallet }: { account: Account; wallet: ConnectedWallet }) => {
   const isCurrent = account.walletAddress === wallet.account.walletAddress;
+  const canSign = wallet.connector.capabilities.signMessage;
   const [state, setState] = useState<SignState>({ kind: "idle" });
 
   const handleSign = async () => {
@@ -247,25 +244,27 @@ const AccountRow = ({ account, wallet }: { account: Account; wallet: ConnectedWa
       }`}
     >
       <span className="break-all font-mono text-xs">{account.walletAddress}</span>
-      <span className="flex shrink-0 items-center gap-2">
-        {state.kind === "ok" ? (
-          <span className="text-xs text-emerald-700">✓ signed</span>
-        ) : state.kind === "error" ? (
-          <span title={state.message} className="text-xs text-red-700">
-            ✗ failed
-          </span>
-        ) : null}
-        <button
-          className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs hover:bg-neutral-50 disabled:opacity-50"
-          disabled={state.kind === "signing"}
-          onClick={() => {
-            void handleSign();
-          }}
-          type="button"
-        >
-          {state.kind === "signing" ? "…" : "Sign"}
-        </button>
-      </span>
+      {canSign ? (
+        <span className="flex shrink-0 items-center gap-2">
+          {state.kind === "ok" ? (
+            <span className="text-xs text-emerald-700">✓ signed</span>
+          ) : state.kind === "error" ? (
+            <span title={state.message} className="text-xs text-red-700">
+              ✗ failed
+            </span>
+          ) : null}
+          <button
+            className="rounded border border-neutral-300 bg-white px-2 py-0.5 text-xs hover:bg-neutral-50 disabled:opacity-50"
+            disabled={state.kind === "signing"}
+            onClick={() => {
+              void handleSign();
+            }}
+            type="button"
+          >
+            {state.kind === "signing" ? "…" : "Sign"}
+          </button>
+        </span>
+      ) : null}
     </li>
   );
 };
