@@ -42,6 +42,10 @@
       "types": "./dist/auto/index.d.ts",
       "default": "./dist/auto/index.js"
     },
+    "./ledger": {
+      "types": "./dist/ledger/index.d.ts",
+      "default": "./dist/ledger/index.js"
+    },
     "./walletconnect": {
       "types": "./dist/walletconnect/index.d.ts",
       "default": "./dist/walletconnect/index.js"
@@ -57,6 +61,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@ledgerhq/hw-app-eth": "^7.8.2",
+    "@ledgerhq/hw-transport-webusb": "^6.34.2",
     "@repo/typescript-config": "workspace:*",
     "@types/react": "^19.0.0",
     "@wallet-standard/app": "^1.1.0",
@@ -67,12 +73,20 @@
     "zustand": "^5.0.0"
   },
   "peerDependencies": {
+    "@ledgerhq/hw-app-eth": ">=6.0.0 <8.0.0",
+    "@ledgerhq/hw-transport-webusb": ">=6.0.0",
     "@wallet-standard/app": "^1.1.0",
     "@walletconnect/universal-provider": "^2.0.0",
     "react": ">=18.0.0",
     "zustand": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@ledgerhq/hw-app-eth": {
+      "optional": true
+    },
+    "@ledgerhq/hw-transport-webusb": {
+      "optional": true
+    },
     "@wallet-standard/app": {
       "optional": true
     },

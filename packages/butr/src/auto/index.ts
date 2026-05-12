@@ -24,6 +24,11 @@ export {
   hexToBytes,
 } from "./eip6963-adapter";
 
+// Injected fallback — last-resort discovery for EVM wallets that
+// don't announce via EIP-6963 (regional / legacy injected providers).
+export type { InjectedDiscoveryOptions } from "./injected";
+export { GENERIC_INJECTED_ICON, discoverInjectedAdapter } from "./injected";
+
 // SVM-side adapter (Wallet Standard) — requires the optional peer dep
 // `@wallet-standard/app` for the discovery to actually fire.
 export type {
