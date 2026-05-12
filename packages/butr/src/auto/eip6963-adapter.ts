@@ -86,14 +86,20 @@ const buildEvmAccount = (address: string, chain: ChainBase): Account => ({
  *  - `getSigner` returns the raw EIP-1193 provider. Wrap it in viem's
  *    `createWalletClient` or ethers' `BrowserProvider` at the call site.
  */
-// EIP-6963 wallets that don't implement EIP-2255 `wallet_requestPermissions`
-// — calling `requestAccounts` falls back to `eth_requestAccounts`, which
-// won't reopen the picker, so the button would be a no-op for the user.
-// Listed by `rdns` (the stable identifier per EIP-6963 §Wallet.info).
-// Add more entries as wallets are verified.
-const RDNS_WITHOUT_REQUEST_ACCOUNTS = new Set<string>([
-  "app.phantom", // Phantom's EVM provider — verified May 2026
-  "com.coinbase.wallet", // Coinbase Wallet — rejects with code -32603/-32604, verified May 2026
+// Allow-list of EIP-6963 wallets where `requestAccounts` does
+// something user-visible (reopens the wallet's account picker via
+// EIP-2255 `wallet_requestPermissions`). MetaMask is the only wallet
+// that implements this the way the spec intends — every other tested
+// wallet either rejects the method (Phantom EVM, Coinbase Wallet) or
+// silently returns the existing accounts (Rabby, OKX, Binance,
+// Backpack EVM), making the UI button a no-op for the user. The
+// inverted default avoids rendering a button that does nothing.
+//
+// Listed by `rdns` (EIP-6963 §Wallet.info). Add a wallet here only
+// after verifying that calling `requestAccounts` actually surfaces
+// a picker UI to the user.
+const RDNS_WITH_REQUEST_ACCOUNTS = new Set<string>([
+  "io.metamask", // MetaMask — verified May 2026
 ]);
 
 const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): WalletAdapter => {
@@ -101,10 +107,13 @@ const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): 
     capabilities: {
       getBalance: true,
       getTransactionReceipt: true,
-      // True by default; false for wallets known not to honour
-      // EIP-2255 (the fallback to `eth_requestAccounts` is a no-op
-      // there, so we hide the button rather than render a dead one).
-      requestAccounts: !RDNS_WITHOUT_REQUEST_ACCOUNTS.has(info.rdns),
+      // False by default; true only for wallets in the allow-list
+      // above. Most EVM wallets either reject EIP-2255 or silently
+      // return existing accounts, so the UI button would be a no-op.
+      // Consumers can still call `connector.requestAccounts()`
+      // manually for wallet-specific flows — the method exists, the
+      // capability flag just gates the affordance.
+      requestAccounts: RDNS_WITH_REQUEST_ACCOUNTS.has(info.rdns),
       sendTransaction: true,
       signMessage: true,
       subscribe: true,
@@ -196,17 +205,21 @@ const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): 
     name: info.name,
 
     async requestAccounts() {
-      // Preferred path: EIP-2255 `wallet_requestPermissions` reopens the
-      // wallet's account-picker UI; the user chooses which additional
-      // accounts to expose. MetaMask, Rabby, and Brave implement this.
-      // Fallback: wallets that don't implement EIP-2255 (Phantom EVM,
-      // Coinbase Wallet, …) reject with one of several codes. We fall
-      // through to `eth_requestAccounts`, which won't reopen the picker
-      // but at least refreshes the exposed list and surfaces newly-
-      // added accounts after the user adds them in the wallet UI.
-      // Known wallets are also gated at the `capabilities` layer
-      // (`RDNS_WITHOUT_REQUEST_ACCOUNTS`) so the button doesn't render
-      // at all — this try/catch is defence-in-depth for unknown wallets.
+      // Preferred path: EIP-2255 `wallet_requestPermissions` reopens
+      // the wallet's account-picker UI so the user can grant new
+      // accounts. In practice, MetaMask is the only major EVM wallet
+      // that actually surfaces a fresh picker — Rabby / OKX / Binance
+      // / Backpack silently return existing accounts; Phantom EVM and
+      // Coinbase Wallet reject with `method not supported`. The
+      // `capabilities` layer (`RDNS_WITH_REQUEST_ACCOUNTS`) gates the
+      // demo button so users only see it where it'll do something
+      // visible; this method stays callable for consumers with
+      // wallet-specific flows.
+      //
+      // Fallback: rejecting wallets get routed through
+      // `eth_requestAccounts`, which at least doesn't throw. It won't
+      // reopen the picker but surfaces newly-added accounts on the
+      // next read.
       try {
         await provider.request({
           method: "wallet_requestPermissions",
