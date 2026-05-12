@@ -10,7 +10,8 @@ import type { ConnectionError } from "../types/errors";
 import { mapConnectionError } from "../types/errors";
 import { WalletStorage } from "../storage";
 import type { WalletPersistence } from "../storage";
-import { hydrateFromStorage, logStorageError, run } from "./wallet-store-helpers";
+import { hydrateFromStorage, logStorageError, restoreOneEntry, run } from "./wallet-store-helpers";
+import type { StoredPoolEntry } from "../storage";
 import { type Event, type State, initialState, reducer } from "./reducer";
 
 const CONNECT_TIMEOUT_MS = 90_000;
@@ -23,6 +24,7 @@ type RuntimeMembers = {
   _hydrateWallets: () => Promise<void>;
   _markUserDisconnected: (value: boolean) => void;
   _storage: WalletPersistence;
+  _tryRestoreFromPending: (connectorId: string) => Promise<void>;
   connectWallet: (
     connectorId: string,
     onSuccess?: (wallet: ConnectedWallet) => void,
@@ -52,6 +54,12 @@ const createWalletStore = (config: WalletManagerConfig) => {
   // Lives outside the reducer state because these are side-effect handles,
   // not data anyone should subscribe to.
   const unsubscribers = new Map<string, () => void>();
+
+  // Stored pool entries that couldn't be restored at hydration because
+  // their adapter wasn't registered yet (auto-discovery race for SVM).
+  // `_tryRestoreFromPending(connectorId)` consumes from here when the
+  // matching adapter finally announces.
+  const pendingRestores = new Map<string, StoredPoolEntry>();
 
   return createStore<State & RuntimeMembers>()((set, get) => {
         const dispatch = (event: Event) => {
@@ -174,6 +182,13 @@ const createWalletStore = (config: WalletManagerConfig) => {
               selection: result.selection,
               type: "HYDRATED",
             });
+            // Park entries whose adapter wasn't registered yet — the
+            // provider will call `_tryRestoreFromPending` once discovery
+            // announces a matching id.
+            pendingRestores.clear();
+            for (const [connectorId, entry] of result.pending) {
+              pendingRestores.set(connectorId, entry);
+            }
             // Wire up wallet-side event subscriptions for every restored
             // connector so account/chain swaps after a refresh keep the
             // reducer in sync without consumer effort.
@@ -183,6 +198,43 @@ const createWalletStore = (config: WalletManagerConfig) => {
             // Persist any reconciled values back so future loads stay consistent.
             persistSelection();
             persistActive();
+          },
+          _tryRestoreFromPending: async (connectorId) => {
+            const entry = pendingRestores.get(connectorId);
+            if (!entry) {
+              return;
+            }
+            const connector = config.createConnector(connectorId);
+            if (!connector) {
+              // Adapter still not available — leave the entry pending.
+              return;
+            }
+            // Skip if the user explicitly disconnected in the previous
+            // session. Hydration honours `isUserDisconnected` at the
+            // reducer level; respect it here too so a discovery-driven
+            // late restore doesn't surprise the user.
+            if (get().isUserDisconnected) {
+              pendingRestores.delete(connectorId);
+              return;
+            }
+            const outcome = await restoreOneEntry(connectorId, entry, connector);
+            pendingRestores.delete(connectorId);
+            if (outcome.kind === "fail") {
+              console.warn(`[butr] late restore failed for ${connectorId}:`, outcome.error);
+              void run(
+                () => storage.removePoolEntry(connectorId),
+                logStorageError("failed to remove broken entry"),
+              );
+              return;
+            }
+            // Reuse the reducer's connect-success path so selection /
+            // active reconciliation matches a normal connect flow.
+            dispatch({ connectorId, entry: outcome.entry, type: "CONNECT_SUCCEEDED" });
+            subscribeToConnector(connectorId, outcome.entry.connector);
+            persistPool();
+            persistSelection();
+            persistActive();
+            config.onConnect?.(outcome.entry);
           },
           _markUserDisconnected: (value: boolean) => {
             dispatch({ type: "USER_DISCONNECTED_SET", value });

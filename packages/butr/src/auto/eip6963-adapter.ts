@@ -93,6 +93,7 @@ const buildEvmAccount = (address: string, chain: ChainBase): Account => ({
 // Add more entries as wallets are verified.
 const RDNS_WITHOUT_REQUEST_ACCOUNTS = new Set<string>([
   "app.phantom", // Phantom's EVM provider — verified May 2026
+  "com.coinbase.wallet", // Coinbase Wallet — rejects with code -32603/-32604, verified May 2026
 ]);
 
 const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): WalletAdapter => {
@@ -198,20 +199,31 @@ const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): 
       // Preferred path: EIP-2255 `wallet_requestPermissions` reopens the
       // wallet's account-picker UI; the user chooses which additional
       // accounts to expose. MetaMask, Rabby, and Brave implement this.
-      // Fallback: wallets that don't implement EIP-2255 (notably
-      // Phantom's EVM provider) reject with code 4200 or -32601. We fall
+      // Fallback: wallets that don't implement EIP-2255 (Phantom EVM,
+      // Coinbase Wallet, …) reject with one of several codes. We fall
       // through to `eth_requestAccounts`, which won't reopen the picker
       // but at least refreshes the exposed list and surfaces newly-
       // added accounts after the user adds them in the wallet UI.
+      // Known wallets are also gated at the `capabilities` layer
+      // (`RDNS_WITHOUT_REQUEST_ACCOUNTS`) so the button doesn't render
+      // at all — this try/catch is defence-in-depth for unknown wallets.
       try {
         await provider.request({
           method: "wallet_requestPermissions",
           params: [{ eth_accounts: {} }],
         });
       } catch (error: unknown) {
-        const code = (error as { code?: number } | null)?.code;
-        // EIP-1474 "method not supported" / JSON-RPC "method not found"
-        if (code === 4200 || code === -32601) {
+        const err = error as { code?: number; data?: { originalError?: { code?: number } } } | null;
+        const outerCode = err?.code;
+        const innerCode = err?.data?.originalError?.code;
+        const isMethodNotSupported =
+          outerCode === 4200 || // EIP-1474 "method not supported"
+          outerCode === -32601 || // JSON-RPC "method not found"
+          outerCode === -32603 || // JSON-RPC "internal error" (Coinbase wraps -32604 here)
+          innerCode === 4200 ||
+          innerCode === -32601 ||
+          innerCode === -32604; // Coinbase's custom "method not supported"
+        if (isMethodNotSupported) {
           await provider.request({ method: "eth_requestAccounts" });
           return;
         }

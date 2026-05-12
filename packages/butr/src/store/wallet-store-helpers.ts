@@ -5,7 +5,7 @@ import type {
   Connector,
   WalletManagerConfig,
 } from "../types";
-import type { WalletPersistence } from "../storage";
+import type { StoredPoolEntry, WalletPersistence } from "../storage";
 
 /**
  * Pick the right `accounts` list for a hydrated wallet entry: prefer fresh
@@ -33,6 +33,14 @@ const resolveHydratedAccounts = async (
 type HydrateResult = {
   activeConnectorId: string | null;
   isUserDisconnected: boolean;
+  /** Entries we couldn't restore at hydration time because
+   *  `createConnector(id)` returned `null`. These are NOT failures —
+   *  they're deferred. The most common cause is auto-discovery
+   *  timing: Wallet Standard's `@wallet-standard/app` import is async,
+   *  so SVM adapters announce themselves AFTER hydration runs at
+   *  provider mount. The runtime retains these entries so a later
+   *  discovery announcement can trigger a single-entry restore. */
+  pending: Map<string, StoredPoolEntry>;
   pool: Map<string, ConnectedWallet>;
   selection: Map<ChainPlatform, string>;
 };
@@ -96,9 +104,15 @@ const hydrateFromStorage = async (
   ]);
 
   const pool = new Map<string, ConnectedWallet>();
+  // Entries whose adapter wasn't registered yet (auto-discovery race).
+  // The runtime retries these when discovery announces a matching id.
+  const pending = new Map<string, StoredPoolEntry>();
 
-  // Build the restore-task list, instantiating connectors up front so a
-  // missing factory is logged before the parallel work starts.
+  // Build the restore-task list, instantiating connectors up front. A
+  // null factory result isn't a failure — it means the adapter for that
+  // id isn't registered at this instant (common during auto-discovery's
+  // async warmup). We park the entry on `pending` and let the runtime
+  // retry on the next discovery announcement.
   const tasks: Array<Promise<RestoreOutcome>> = [];
   for (const [connectorId, entry] of Object.entries(storedPool)) {
     if (!entry) {
@@ -106,7 +120,7 @@ const hydrateFromStorage = async (
     }
     const connector = createConnector(connectorId);
     if (!connector) {
-      console.warn(`[butr] could not instantiate connector ${connectorId}`);
+      pending.set(connectorId, entry);
       continue;
     }
     tasks.push(restoreOneEntry(connectorId, entry, connector));
@@ -156,12 +170,14 @@ const hydrateFromStorage = async (
   return {
     activeConnectorId,
     isUserDisconnected: userDisconnected,
+    pending,
     pool,
     selection,
   };
 };
 
-export { hydrateFromStorage, logStorageError, run };
+export { hydrateFromStorage, logStorageError, restoreOneEntry, run };
+export type { RestoreOutcome };
 // `hydrateFromStorage` is consumed by the runtime in wallet-store.ts.
 // `isProduction`, `logStorageError`, `run` are internal infra utilities
 // shared between hydrate + runtime; they're not in butr's public API

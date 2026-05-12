@@ -147,9 +147,14 @@ const WalletManagerProvider: React.FC<WalletManagerProviderProps> = (props) => {
       }
       adapters.set(adapter.id, adapter);
       setDiscoveredList((prev) => [...prev, adapter]);
+      // If the user had this wallet connected last session but
+      // hydration ran before the adapter was registered (Wallet
+      // Standard's `@wallet-standard/app` import is async, so SVM
+      // wallets miss the initial sweep), restore the pool entry now.
+      void store.getState()._tryRestoreFromPending(adapter.id);
     }, discoverOptions);
     return unsubscribe;
-  }, [adapters, discoverOptions, isAuto]);
+  }, [adapters, discoverOptions, isAuto, store]);
 
   return (
     <WalletStoreContext.Provider value={store}>
