@@ -24,6 +24,16 @@ const createMockAccount = (overrides?: Partial<Account>): Account => ({
 });
 
 const createMockConnector = (overrides?: Partial<WalletAdapter>): WalletAdapter => ({
+  capabilities: {
+    getBalance: true,
+    getTransactionReceipt: true,
+    requestAccounts: true,
+    sendTransaction: true,
+    signMessage: true,
+    subscribe: true,
+    switchAccount: false,
+    switchChain: true,
+  },
   chainPlatform: "evm" as ChainPlatform,
   connect: vi.fn().mockResolvedValue(undefined),
   disconnect: vi.fn().mockResolvedValue(undefined),

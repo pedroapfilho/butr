@@ -13,6 +13,7 @@ export type {
   WalletAdapter,
   Wallet,
   WalletAvailability,
+  WalletCapabilities,
   WalletManagerConfig,
 } from "./types";
 export { mapConnectionError } from "./types";

@@ -227,6 +227,32 @@ Bring your own driver — anything that implements `getItem`/`setItem`/`removeIt
 >
 ```
 
+### Capability flags
+
+Different wallets implement different subsets of EIP-1193 / Wallet Standard. Probing for method existence via `typeof === "function"` only catches truly-optional methods — `signMessage` on SVM is always defined but throws if `solana:signMessage` isn't advertised. To gate UI affordances honestly, every connector carries a `capabilities: WalletCapabilities` field with runtime flags:
+
+```ts
+type WalletCapabilities = {
+  getBalance: boolean;            // false for SVM auto-adapter (no RPC)
+  getTransactionReceipt: boolean; // false for SVM auto-adapter (no RPC)
+  requestAccounts: boolean;       // EIP-2255 on EVM, standard:connect on SVM
+  sendTransaction: boolean;       // false for SVM wallets missing solana:signAndSendTransaction
+  signMessage: boolean;           // false for SVM wallets missing solana:signMessage
+  subscribe: boolean;             // does the wallet emit change events?
+  switchAccount: boolean;         // almost always false — no protocol RPC
+  switchChain: boolean;           // EVM: true. SVM: true when wallet advertises >1 chain
+};
+
+// Consumer code
+{wallet.connector.capabilities.requestAccounts ? (
+  <button onClick={() => requestAccounts(wallet.connector.id)}>
+    Request more accounts
+  </button>
+) : null}
+```
+
+Auto-built adapters populate these from the underlying protocol's feature advertisements (e.g. SVM's `signMessage` flag mirrors whether the wallet advertises `solana:signMessage`); hand-rolled adapters declare them explicitly. Each flag means "can this work right now," not "is this method defined." Use these instead of probing — they're honest about whether the call would reject.
+
 ### Chain switching
 
 Each adapter implements `Connector.switchChain(chain: ChainBase)`. butr ships a small registry of common chains so consumers don't have to hand-roll the CAIP-2 tuples:

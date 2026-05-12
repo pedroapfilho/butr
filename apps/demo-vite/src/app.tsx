@@ -90,7 +90,7 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
   const requestAccounts = useRequestAccounts();
   const balance = useBalance(wallet.connector.id);
   const isActive = active?.connector.id === wallet.connector.id;
-  const canRequestAccounts = typeof wallet.connector.requestAccounts === "function";
+  const { capabilities } = wallet.connector;
   const balanceText =
     balance.status === "success"
       ? `${balance.data.formatted} ${balance.data.symbol}`
@@ -149,12 +149,16 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
         </dd>
         <dt className="text-neutral-500">Balance</dt>
         <dd className="font-mono text-xs">{balanceText}</dd>
-        <dt className="text-neutral-500">Chain</dt>
-        <dd>
-          <ChainPicker wallet={wallet} />
-        </dd>
+        {capabilities.switchChain ? (
+          <>
+            <dt className="text-neutral-500">Chain</dt>
+            <dd>
+              <ChainPicker wallet={wallet} />
+            </dd>
+          </>
+        ) : null}
       </dl>
-      {canRequestAccounts ? (
+      {capabilities.requestAccounts ? (
         <button
           className="rounded-md border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50"
           onClick={() => {

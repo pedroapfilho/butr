@@ -151,6 +151,24 @@ const buildSvmAdapter = (wallet: WalletStandardWallet): WalletAdapter | null => 
   };
 
   return {
+    capabilities: {
+      // Wallet Standard has no balance/receipt RPC. Consumers wrap
+      // their own RPC client (e.g. butr/svm-rpc once it ships).
+      getBalance: false,
+      getTransactionReceipt: false,
+      // `standard:connect` is the closest we have to EIP-2255 — calling
+      // it again may re-prompt or silently refresh, depending on the
+      // wallet. We expose the capability either way; consumers can
+      // surface a hint that the UX is "soft" on Solana.
+      requestAccounts: true,
+      sendTransaction: Boolean(signAndSendTx),
+      signMessage: Boolean(signMessage),
+      subscribe: Boolean(events),
+      // Wallet Standard has no silent account-switch feature.
+      switchAccount: false,
+      // Switching only makes sense if the wallet advertises >1 chain.
+      switchChain: wallet.chains.length > 1,
+    },
     chainPlatform: "svm",
 
     async connect() {

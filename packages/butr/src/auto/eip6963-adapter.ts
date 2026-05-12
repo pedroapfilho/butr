@@ -88,6 +88,21 @@ const buildEvmAccount = (address: string, chain: ChainBase): Account => ({
  */
 const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): WalletAdapter => {
   return {
+    capabilities: {
+      getBalance: true,
+      getTransactionReceipt: true,
+      // True optimistically — wallets without EIP-2255 fall through to
+      // `eth_requestAccounts` (which won't reopen the picker, but at
+      // least doesn't reject). Consumers see the button either way.
+      requestAccounts: true,
+      sendTransaction: true,
+      signMessage: true,
+      subscribe: true,
+      // EIP-1193 has no silent "use address X" RPC. Always false for
+      // auto-built EVM adapters.
+      switchAccount: false,
+      switchChain: true,
+    },
     chainPlatform: "evm",
 
     async connect() {

@@ -117,7 +117,7 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
   const requestAccounts = useRequestAccounts();
   const balance = useBalance(wallet.connector.id);
   const isActive = active?.connector.id === wallet.connector.id;
-  const canRequestAccounts = typeof wallet.connector.requestAccounts === "function";
+  const { capabilities } = wallet.connector;
   const balanceText =
     balance.status === "success"
       ? `${balance.data.formatted} ${balance.data.symbol}`
@@ -172,13 +172,15 @@ const ConnectedWalletCard = ({ wallet }: { wallet: ConnectedWallet }) => {
         <Text style={styles.dt}>Balance</Text>
         <Text style={styles.dd}>{balanceText}</Text>
       </View>
-      <View style={styles.dlRow}>
-        <Text style={styles.dt}>Chain</Text>
-        <View style={styles.dd}>
-          <ChainPicker wallet={wallet} />
+      {capabilities.switchChain ? (
+        <View style={styles.dlRow}>
+          <Text style={styles.dt}>Chain</Text>
+          <View style={styles.dd}>
+            <ChainPicker wallet={wallet} />
+          </View>
         </View>
-      </View>
-      {canRequestAccounts ? (
+      ) : null}
+      {capabilities.requestAccounts ? (
         <Pressable
           onPress={() => {
             void requestAccounts(wallet.connector.id);

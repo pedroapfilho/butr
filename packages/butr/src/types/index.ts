@@ -13,5 +13,6 @@ export type {
   WalletAdapter,
   Wallet,
   WalletAvailability,
+  WalletCapabilities,
   WalletManagerConfig,
 } from "./wallet";
