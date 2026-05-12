@@ -224,6 +224,19 @@ const createWalletStore = (config: WalletManagerConfig) => {
             // Persist any reconciled values back so future loads stay consistent.
             persistSelection();
             persistActive();
+            // Drain: catch the race where a Wallet Standard adapter
+            // announced BEFORE hydration finished populating
+            // pendingRestores. Without this, the discovery callback's
+            // `_tryRestoreFromPending(adapter.id)` would have found
+            // an empty map and silently returned, leaving SVM wallets
+            // un-restored on reload even though their adapter IS in
+            // the registry by now. Each call resolves independently;
+            // `Promise.all` here mirrors the parallel restore that
+            // `hydrateFromStorage` does for the eager path. The promise
+            // is dropped on the floor — late-restore failures surface
+            // per-entry via `_tryRestoreFromPending`'s own logging.
+            const pendingIds = [...pendingRestores.keys()];
+            void Promise.all(pendingIds.map((id) => get()._tryRestoreFromPending(id)));
             // Surface the hydration outcome. Three buckets: restored,
             // pending (waiting for adapter announcement), dropped
             // (genuine restore failures). The default `console.warn`
@@ -257,14 +270,12 @@ const createWalletStore = (config: WalletManagerConfig) => {
               // Adapter still not available — leave the entry pending.
               return;
             }
-            // Skip if the user explicitly disconnected in the previous
-            // session. Hydration honours `isUserDisconnected` at the
-            // reducer level; respect it here too so a discovery-driven
-            // late restore doesn't surprise the user.
-            if (get().isUserDisconnected) {
-              pendingRestores.delete(connectorId);
-              return;
-            }
+            // Note: deliberately NOT gating on `isUserDisconnected`.
+            // The EVM hydration path (`restoreOneEntry` inside
+            // `hydrateFromStorage`) doesn't check that flag either —
+            // stored entries restore on reload regardless of whether
+            // the user's most recent action was a disconnect. The
+            // late-restore path mirrors that policy for symmetry.
             const outcome = await restoreOneEntry(connectorId, entry, connector);
             pendingRestores.delete(connectorId);
             if (outcome.kind === "fail") {
