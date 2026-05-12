@@ -86,15 +86,24 @@ const buildEvmAccount = (address: string, chain: ChainBase): Account => ({
  *  - `getSigner` returns the raw EIP-1193 provider. Wrap it in viem's
  *    `createWalletClient` or ethers' `BrowserProvider` at the call site.
  */
+// EIP-6963 wallets that don't implement EIP-2255 `wallet_requestPermissions`
+// — calling `requestAccounts` falls back to `eth_requestAccounts`, which
+// won't reopen the picker, so the button would be a no-op for the user.
+// Listed by `rdns` (the stable identifier per EIP-6963 §Wallet.info).
+// Add more entries as wallets are verified.
+const RDNS_WITHOUT_REQUEST_ACCOUNTS = new Set<string>([
+  "app.phantom", // Phantom's EVM provider — verified May 2026
+]);
+
 const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): WalletAdapter => {
   return {
     capabilities: {
       getBalance: true,
       getTransactionReceipt: true,
-      // True optimistically — wallets without EIP-2255 fall through to
-      // `eth_requestAccounts` (which won't reopen the picker, but at
-      // least doesn't reject). Consumers see the button either way.
-      requestAccounts: true,
+      // True by default; false for wallets known not to honour
+      // EIP-2255 (the fallback to `eth_requestAccounts` is a no-op
+      // there, so we hide the button rather than render a dead one).
+      requestAccounts: !RDNS_WITHOUT_REQUEST_ACCOUNTS.has(info.rdns),
       sendTransaction: true,
       signMessage: true,
       subscribe: true,

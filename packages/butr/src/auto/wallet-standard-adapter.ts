@@ -156,11 +156,15 @@ const buildSvmAdapter = (wallet: WalletStandardWallet): WalletAdapter | null => 
       // their own RPC client (e.g. butr/svm-rpc once it ships).
       getBalance: false,
       getTransactionReceipt: false,
-      // `standard:connect` is the closest we have to EIP-2255 — calling
-      // it again may re-prompt or silently refresh, depending on the
-      // wallet. We expose the capability either way; consumers can
-      // surface a hint that the UX is "soft" on Solana.
-      requestAccounts: true,
+      // Wallet Standard has no programmatic equivalent of EIP-2255 —
+      // wallets expose all the user's accounts at connect time, and
+      // adding more is a wallet-UI operation. Re-running
+      // `standard:connect` is the closest we can do, but it doesn't
+      // produce new accounts on any major Wallet Standard wallet in
+      // practice (Phantom Solana, MetaMask Snap, Solflare, Backpack).
+      // Set false so consumers don't render a button that won't do
+      // anything visible.
+      requestAccounts: false,
       sendTransaction: Boolean(signAndSendTx),
       signMessage: Boolean(signMessage),
       subscribe: Boolean(events),
