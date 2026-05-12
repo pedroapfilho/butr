@@ -426,18 +426,20 @@ describe("createWalletStore", () => {
   });
 
   describe("connector subscription bridge", () => {
-    it("dispatches accountChanged events into ACCOUNT_UPDATED", async () => {
+    it("mirrors the wallet's exposed accounts on accountChanged", async () => {
       const original = createMockAccount({ walletAddress: "0xORIG" });
-      let listener: ((event: { account: typeof original; type: "accountChanged" }) => void) | null =
-        null;
-      const subscribe = vi.fn(
-        (l: (e: { account: typeof original; type: "accountChanged" }) => void) => {
-          listener = l;
-          return () => {
-            listener = null;
-          };
-        },
-      );
+      type AccountChangedEvent = {
+        account: typeof original;
+        accounts: Array<typeof original>;
+        type: "accountChanged";
+      };
+      let listener: ((event: AccountChangedEvent) => void) | null = null;
+      const subscribe = vi.fn((l: (e: AccountChangedEvent) => void) => {
+        listener = l;
+        return () => {
+          listener = null;
+        };
+      });
       const connector = createMockConnector({
         getAccount: vi.fn().mockResolvedValue(original),
         id: "metamask",
@@ -450,12 +452,23 @@ describe("createWalletStore", () => {
       await store.getState().connectWallet("metamask");
       expect(subscribe).toHaveBeenCalledTimes(1);
 
+      // Single-account-exposure wallet (Phantom EVM, MetaMask Snap):
+      // accountsChanged carries just the new active. Pool entry's
+      // `accounts` array drops the previous address.
       const next = createMockAccount({ walletAddress: "0xNEXT" });
-      listener!({ account: next, type: "accountChanged" });
+      listener!({ account: next, accounts: [next], type: "accountChanged" });
 
-      const wallet = store.getState().pool.get("metamask");
+      let wallet = store.getState().pool.get("metamask");
       expect(wallet?.account.walletAddress).toBe("0xNEXT");
-      expect(wallet?.accounts.map((a) => a.walletAddress)).toEqual(["0xORIG", "0xNEXT"]);
+      expect(wallet?.accounts.map((a) => a.walletAddress)).toEqual(["0xNEXT"]);
+
+      // Multi-account-exposure wallet (MetaMask EVM): accountsChanged
+      // carries the full authorized set. Pool entry mirrors it verbatim.
+      const alt = createMockAccount({ walletAddress: "0xALT" });
+      listener!({ account: next, accounts: [next, alt], type: "accountChanged" });
+      wallet = store.getState().pool.get("metamask");
+      expect(wallet?.account.walletAddress).toBe("0xNEXT");
+      expect(wallet?.accounts.map((a) => a.walletAddress)).toEqual(["0xNEXT", "0xALT"]);
     });
 
     it("dispatches disconnected events into DISCONNECTED", async () => {

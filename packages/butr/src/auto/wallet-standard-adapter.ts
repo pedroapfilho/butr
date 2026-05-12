@@ -140,13 +140,17 @@ const buildSvmAdapter = (wallet: WalletStandardWallet): WalletAdapter | null => 
   // Wallet-native events from `standard:events` are bridged alongside.
   const listeners = new Set<(event: ConnectorEvent) => void>();
   const notifyAccountChanged = () => {
-    const address = pickFirstAddress(wallet.accounts);
-    if (!address) {
+    if (wallet.accounts.length === 0) {
       return;
     }
-    const account = buildSolanaAccount(address, currentChain());
+    const chain = currentChain();
+    const built = wallet.accounts.map((a) => buildSolanaAccount(a.address, chain));
+    const first = built[0];
+    if (!first) {
+      return;
+    }
     for (const listener of listeners) {
-      listener({ account, type: "accountChanged" });
+      listener({ account: first, accounts: built, type: "accountChanged" });
     }
   };
 
@@ -304,14 +308,19 @@ const buildSvmAdapter = (wallet: WalletStandardWallet): WalletAdapter | null => 
             listener({ type: "disconnected" });
             return;
           }
-          const first = changes.accounts[0];
+          // Forward the FULL accounts list — Wallet Standard's
+          // change.accounts reflects the wallet's current exposure
+          // set. Mirroring it into the pool entry keeps the array in
+          // sync with what the wallet actually allows us to sign with,
+          // so single-account-exposure wallets (Phantom Solana,
+          // MetaMask Snap) don't accumulate stale addresses.
+          const chain = currentChain();
+          const built = changes.accounts.map((a) => buildSolanaAccount(a.address, chain));
+          const first = built[0];
           if (!first) {
             return;
           }
-          listener({
-            account: buildSolanaAccount(first.address, currentChain()),
-            type: "accountChanged",
-          });
+          listener({ account: first, accounts: built, type: "accountChanged" });
         });
         unsubWallet = () => unsub();
       }

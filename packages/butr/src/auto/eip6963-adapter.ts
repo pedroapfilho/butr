@@ -277,17 +277,22 @@ const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): 
           listener({ type: "disconnected" });
           return;
         }
-        const first = accs[0];
-        if (!first) {
-          return;
-        }
-        // Need chain id to build a complete Account.
+        // Forward the FULL accounts array — `accountsChanged` reflects
+        // the wallet's current exposure set, not an incremental add.
+        // The runtime mirrors this list verbatim into the pool entry,
+        // so single-account-exposure wallets (Phantom EVM) don't end
+        // up with stale, non-signable addresses lingering in the array.
         void provider
           .request({ method: "eth_chainId" })
           // oxlint-disable-next-line promise/prefer-await-to-then -- callback context, not async
           .then((chainIdHex) => {
             const chain = buildEvmChain(chainIdHex as string, info.name);
-            listener({ account: buildEvmAccount(first, chain), type: "accountChanged" });
+            const accounts = accs.map((addr) => buildEvmAccount(addr, chain));
+            const first = accounts[0];
+            if (!first) {
+              return undefined;
+            }
+            listener({ account: first, accounts, type: "accountChanged" });
             return undefined;
           })
           // oxlint-disable-next-line promise/prefer-await-to-then -- callback context, not async
@@ -303,12 +308,16 @@ const buildEvmAdapter = (info: Eip6963ProviderInfo, provider: Eip1193Provider): 
           // oxlint-disable-next-line promise/prefer-await-to-then -- callback context, not async
           .then((accounts) => {
             const accs = accounts as Array<string>;
-            const first = accs[0];
-            if (!first) {
+            if (accs.length === 0) {
               return undefined;
             }
             const chain = buildEvmChain(chainIdHex, info.name);
-            listener({ account: buildEvmAccount(first, chain), type: "accountChanged" });
+            const built = accs.map((addr) => buildEvmAccount(addr, chain));
+            const first = built[0];
+            if (!first) {
+              return undefined;
+            }
+            listener({ account: first, accounts: built, type: "accountChanged" });
             return undefined;
           })
           // oxlint-disable-next-line promise/prefer-await-to-then -- callback context, not async

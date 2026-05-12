@@ -120,7 +120,17 @@ const createWalletStore = (config: WalletManagerConfig) => {
             const unsub = connector.subscribe((event) => {
               switch (event.type) {
                 case "accountChanged": {
-                  dispatch({ account: event.account, connectorId, type: "ACCOUNT_UPDATED" });
+                  // Full-replace the accounts array so the pool entry
+                  // mirrors the wallet's current exposure. Drops the
+                  // previously-active address on single-account
+                  // wallets (Phantom EVM/SVM, MetaMask Snap); preserves
+                  // the multi-account list on MetaMask, Rabby, etc.
+                  // The reducer picks `event.account` as the new active.
+                  dispatch({
+                    accounts: [...event.accounts],
+                    connectorId,
+                    type: "ACCOUNTS_REFRESHED",
+                  });
                   persistPool();
                   break;
                 }

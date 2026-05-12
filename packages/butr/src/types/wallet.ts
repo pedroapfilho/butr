@@ -36,12 +36,23 @@ type WalletAvailability = "installed" | "loadable" | "not-installed";
  * via `Connector.subscribe?` after a successful `connect()` and dispatches
  * the equivalent reducer event:
  *
- * - `accountChanged` → `ACCOUNT_UPDATED` (also covers chain switches —
- *   the new chain lives inside `account.chain`).
+ * - `accountChanged` carries both the new active `account` AND the full
+ *   `accounts` array the wallet currently exposes. The runtime mirrors
+ *   that list verbatim into the pool entry. This handles two cases
+ *   uniformly:
+ *     - Multi-account wallets (MetaMask, Rabby, Brave): the user adds or
+ *       removes accounts from the dapp's permission set; the array grows
+ *       or shrinks to match.
+ *     - Single-account-exposure wallets (Phantom EVM/SVM, MetaMask Snap):
+ *       only the active account is ever in `accounts`; switching swaps it
+ *       in place rather than appending.
+ *   Also covers chain switches — the new chain lives inside `account.chain`.
  * - `disconnected` → `DISCONNECTED` (wallet has gone away externally:
  *   user locked it, removed the extension, etc.).
  */
-type ConnectorEvent = { account: Account; type: "accountChanged" } | { type: "disconnected" };
+type ConnectorEvent =
+  | { account: Account; accounts: Array<Account>; type: "accountChanged" }
+  | { type: "disconnected" };
 
 /**
  * Capability flags describing what an adapter can actually do at
