@@ -27,7 +27,7 @@
     "lint": "oxlint src",
     "prepack": "pnpm run build",
     "prepare": "pnpm run build",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

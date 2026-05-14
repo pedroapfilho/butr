@@ -1,13 +1,15 @@
-import React, { createContext, use, useEffect, useMemo, useRef, useState } from "react";
+import React, { createContext, use, useEffect, useState } from "react";
+import type { WalletAdapter, WalletManagerConfig } from "@butr/core";
+import {
+  WalletManagerProvider as BaseWalletManagerProvider,
+  useWalletStoreContext,
+} from "@butr/react";
 import {
   type DiscoverOptions,
   discoverWalletAdapters,
   resolveDiscoverOptions,
 } from "./auto/discover";
-import type { WalletAdapter, WalletManagerConfig } from "./types";
-import { type WalletStore, createWalletStore } from "./store";
 
-const WalletStoreContext = createContext<WalletStore | null>(null);
 const EMPTY_DISCOVERED: ReadonlyArray<WalletAdapter> = [];
 const DiscoveredWalletsContext = createContext<ReadonlyArray<WalletAdapter>>(EMPTY_DISCOVERED);
 
@@ -18,12 +20,9 @@ const DiscoveredWalletsContext = createContext<ReadonlyArray<WalletAdapter>>(EMP
  *
  * The `auto` prop accepts either:
  *  - `true` — discover every platform butr knows how to discover
- *    (EVM via EIP-6963 + SVM via Wallet Standard). The SVM side
- *    silently no-ops if `@wallet-standard/app` isn't installed.
+ *    (EVM via EIP-6963 + SVM via Wallet Standard).
  *  - An options object like `{ evm: true, svm: false }` to scope to a
- *    single platform. Useful for apps that only target one chain
- *    family and don't want the other family's wallets cluttering
- *    `useDiscoveredWallets()`.
+ *    single platform.
  */
 type AutoProviderProps = {
   auto: true | DiscoverOptions;
@@ -49,141 +48,101 @@ type ManualProviderProps = {
 type WalletManagerProviderProps = AutoProviderProps | ManualProviderProps;
 
 /**
- * The single butr provider. Two modes, picked by the `auto` prop:
- *
- *  - Manual (default): `<WalletManagerProvider config={...}>`. You wire
- *    every connector yourself via `config.connectors` and
- *    `config.createConnector`.
- *
- *  - Auto: `<WalletManagerProvider auto>`. butr subscribes to EIP-6963
- *    (and Wallet Standard, currently stubbed) and feeds the announced
- *    wallets to the store. No `config` is needed; callbacks/storage
- *    pass through as top-level props. Below the provider,
- *    `useDiscoveredWallets()` returns the live list for rendering a
- *    wallet picker.
- *
- * The store is created exactly once for the lifetime of the provider.
- * In auto mode, discovered adapters live in a `useRef` Map so the
- * store's `createConnector` closure reads them fresh at connect-time —
- * adapters announced after mount are still findable when the user
- * picks them.
+ * Drives EIP-6963 / Wallet Standard discovery and forwards announced
+ * adapters into the shared adapters Map. Lives inside the
+ * `BaseWalletManagerProvider` tree so it can read the store via context
+ * to call `_tryRestoreFromPending` when a late-arriving adapter (e.g.
+ * SVM via async `@wallet-standard/app` import) matches a stored pending
+ * entry.
  */
-const WalletManagerProvider: React.FC<WalletManagerProviderProps> = (props) => {
-  // Stable mutable Map for discovered adapters. `useState`'s initial-
-  // value form computes the Map once on mount, and the reference is
-  // shared across renders. We mutate the Map in place during discovery
-  // (intentional — pool changes flow through the parallel
-  // `discoveredList` state below, not through a Map identity change).
-  // Using state instead of `useRef` here side-steps the
-  // "no ref access during render" lint without changing behaviour.
-  const [adapters] = useState<Map<string, WalletAdapter>>(() => new Map());
-  const [discoveredList, setDiscoveredList] =
-    useState<ReadonlyArray<WalletAdapter>>(EMPTY_DISCOVERED);
-
-  // Stable config object for the lifetime of the provider. In auto
-  // mode it carries empty `connectors` (discovery is reactive — UI
-  // reads via `useDiscoveredWallets`) and a `createConnector` closure
-  // over the adapters Map. In manual mode it's the passed config.
-  const initialConfig = useMemo<WalletManagerConfig>(
-    () => {
-      if (props.auto) {
-        return {
-          connectors: [],
-          createConnector: (id) => adapters.get(id) ?? null,
-          onConnect: props.onConnect,
-          onConnectError: props.onConnectError,
-          onDisconnect: props.onDisconnect,
-          onHydrated: props.onHydrated,
-          onReset: props.onReset,
-          onSlowConnect: props.onSlowConnect,
-          onStorageError: props.onStorageError,
-          slowConnectThresholdMs: props.slowConnectThresholdMs,
-          storage: props.storage,
-          storageKeyPrefix: props.storageKeyPrefix,
-        };
-      }
-      return props.config;
-    },
-    // Intentional empty deps: the store is created once on mount and
-    // never re-created. Callbacks captured at mount time are the only
-    // ones the runtime will ever fire. Consumers who need late-bound
-    // callbacks can wrap them in refs themselves. This matches the
-    // pre-`auto` behaviour, where `config` was treated as static after
-    // the first render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
-
-  const [store] = useState(() => createWalletStore(initialConfig));
-  const hasHydratedRef = useRef(false);
-
+const DiscoverySubscriber: React.FC<{
+  adapters: Map<string, WalletAdapter>;
+  options: DiscoverOptions | undefined;
+  setDiscoveredList: React.Dispatch<React.SetStateAction<ReadonlyArray<WalletAdapter>>>;
+}> = ({ adapters, options, setDiscoveredList }) => {
+  const store = useWalletStoreContext();
   useEffect(() => {
-    if (hasHydratedRef.current) {
-      return;
-    }
-    hasHydratedRef.current = true;
-
-    const state = store.getState();
-    void (async () => {
-      try {
-        await state._hydrateWallets();
-      } catch (error: unknown) {
-        console.error("[butr] failed to hydrate wallets:", error);
-      }
-    })();
-  }, [store]);
-
-  // Auto-discovery subscription. Only attaches when `auto` is set on
-  // mount — toggling `auto` after mount is not supported (the store
-  // was already built around the initial mode). All option-shape
-  // interpretation lives in `resolveDiscoverOptions`; this hook just
-  // forwards the resolved flags.
-  const resolvedAuto = resolveDiscoverOptions(props.auto);
-  const discoverOptions: DiscoverOptions | undefined = resolvedAuto.active
-    ? { evm: resolvedAuto.evm, svm: resolvedAuto.svm }
-    : undefined;
-  useEffect(() => {
-    if (!resolvedAuto.active) {
-      return;
-    }
     const unsubscribe = discoverWalletAdapters((adapter) => {
       if (adapters.has(adapter.id)) {
         return;
       }
       adapters.set(adapter.id, adapter);
       setDiscoveredList((prev) => [...prev, adapter]);
-      // If the user had this wallet connected last session but
-      // hydration ran before the adapter was registered (Wallet
-      // Standard's `@wallet-standard/app` import is async, so SVM
-      // wallets miss the initial sweep), restore the pool entry now.
       void store.getState()._tryRestoreFromPending(adapter.id);
-    }, discoverOptions);
+    }, options);
     return unsubscribe;
-  }, [adapters, discoverOptions, resolvedAuto.active, store]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe once on mount
+  }, []);
+  return null;
+};
+
+/**
+ * Backwards-compatible butr provider. In manual mode it's a pass-through
+ * to `@butr/react`'s `WalletManagerProvider`. In auto mode it wires the
+ * discovery layer + `useDiscoveredWallets` context on top, while
+ * delegating store ownership to `@butr/react`.
+ *
+ * This is a compatibility shim — `@butr/wallets` will provide a clean
+ * `AutoWalletManagerProvider` API in a follow-up migration step.
+ */
+const WalletManagerProvider: React.FC<WalletManagerProviderProps> = (props) => {
+  if (!props.auto) {
+    return (
+      <BaseWalletManagerProvider config={props.config}>{props.children}</BaseWalletManagerProvider>
+    );
+  }
+
+  return <AutoModeProvider {...props} />;
+};
+
+const AutoModeProvider: React.FC<AutoProviderProps> = (props) => {
+  const [adapters] = useState<Map<string, WalletAdapter>>(() => new Map());
+  const [discoveredList, setDiscoveredList] =
+    useState<ReadonlyArray<WalletAdapter>>(EMPTY_DISCOVERED);
+
+  const resolvedAuto = resolveDiscoverOptions(props.auto);
+  const discoverOptions: DiscoverOptions | undefined = resolvedAuto.active
+    ? { evm: resolvedAuto.evm, svm: resolvedAuto.svm }
+    : undefined;
+
+  // Stable config object for the lifetime of the provider. `connectors`
+  // stays empty (discovery is reactive — UI reads via
+  // `useDiscoveredWallets`) and `createConnector` closes over the
+  // adapters Map so it always sees the latest announcements.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- captured once on mount
+  const initialConfig: WalletManagerConfig = {
+    connectors: [],
+    createConnector: (id) => adapters.get(id) ?? null,
+    onConnect: props.onConnect,
+    onConnectError: props.onConnectError,
+    onDisconnect: props.onDisconnect,
+    onHydrated: props.onHydrated,
+    onReset: props.onReset,
+    onSlowConnect: props.onSlowConnect,
+    onStorageError: props.onStorageError,
+    slowConnectThresholdMs: props.slowConnectThresholdMs,
+    storage: props.storage,
+    storageKeyPrefix: props.storageKeyPrefix,
+  };
 
   return (
-    <WalletStoreContext.Provider value={store}>
+    <BaseWalletManagerProvider config={initialConfig}>
+      <DiscoverySubscriber
+        adapters={adapters}
+        options={discoverOptions}
+        setDiscoveredList={setDiscoveredList}
+      />
       <DiscoveredWalletsContext.Provider value={discoveredList}>
         {props.children}
       </DiscoveredWalletsContext.Provider>
-    </WalletStoreContext.Provider>
+    </BaseWalletManagerProvider>
   );
-};
-
-/** Hook to get the store from context (internal) */
-const useWalletStoreContext = (): WalletStore => {
-  const store = use(WalletStoreContext);
-  if (!store) {
-    throw new Error("useWalletStoreContext must be used within WalletManagerProvider");
-  }
-  return store;
 };
 
 /**
  * Reactive list of wallets that have announced themselves via EIP-6963
- * (or Wallet Standard, when wired) since the provider mounted. Returns
- * an empty array in manual mode — auto-discovery is opt-in via the
- * `auto` prop on `WalletManagerProvider`.
+ * (or Wallet Standard) since the provider mounted. Returns an empty
+ * array in manual mode — auto-discovery is opt-in via the `auto` prop.
  */
 const useDiscoveredWallets = (): ReadonlyArray<WalletAdapter> => use(DiscoveredWalletsContext);
 

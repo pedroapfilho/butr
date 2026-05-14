@@ -61,7 +61,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@butr/core": "workspace:*"
+    "@butr/core": "workspace:*",
+    "@butr/react": "workspace:*"
   },
   "devDependencies": {
     "@ledgerhq/hw-app-eth": "^7.8.2",

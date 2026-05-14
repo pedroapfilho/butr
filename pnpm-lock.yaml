@@ -261,6 +261,9 @@ importers:
       '@butr/core':
         specifier: workspace:*
         version: link:../core
+      '@butr/react':
+        specifier: workspace:*
+        version: link:../react
     devDependencies:
       '@ledgerhq/hw-app-eth':
         specifier: ^7.8.2
