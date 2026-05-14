@@ -1,0 +1,39 @@
+{
+  "name": "@butr/testing",
+  "version": "0.1.0",
+  "description": "Test helpers for butr: fake adapters, fake persistence, mock storage.",
+  "license": "MIT",
+  "author": "Pedro Filho <pedro@filho.me>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedroapfilho/butr.git",
+    "directory": "packages/testing"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run clean && tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "oxlint src",
+    "prepack": "pnpm run build",
+    "prepare": "pnpm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@butr/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^6.0.3"
+  }
+}
