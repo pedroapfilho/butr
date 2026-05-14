@@ -17,6 +17,12 @@ const reactConfig = defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
+      thresholds: {
+        branches: 60,
+        functions: 70,
+        lines: 78,
+        statements: 78,
+      },
     },
     css: false,
     environment: "jsdom",
