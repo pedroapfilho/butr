@@ -22,8 +22,9 @@
     }
   },
   "scripts": {
-    "build": "pnpm run clean && tsc -p tsconfig.json",
+    "build": "tsdown",
     "clean": "rm -rf dist",
+    "dev": "tsdown --watch",
     "lint": "oxlint src",
     "prepack": "pnpm run build",
     "prepare": "pnpm run build",
