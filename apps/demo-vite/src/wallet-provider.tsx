@@ -28,9 +28,16 @@ const logStorageError: React.ComponentProps<
   console.warn("[butr-demo] onStorageError", context, error);
 };
 
+const logDisconnect: React.ComponentProps<typeof AutoWalletManagerProvider>["onDisconnect"] = (
+  chainPlatform,
+) => {
+  console.log("[butr-demo] onDisconnect", { chainPlatform });
+};
+
 const WalletProvider = ({ children }: { children: ReactNode }) => (
   <AutoWalletManagerProvider
     onConnect={logConnect}
+    onDisconnect={logDisconnect}
     onHydrated={logHydrated}
     onStorageError={logStorageError}
     storageKeyPrefix="butr-demo"
