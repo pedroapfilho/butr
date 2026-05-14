@@ -1,0 +1,51 @@
+{
+  "name": "@butr/wallets",
+  "version": "0.1.0",
+  "description": "Batteries-included EVM + SVM discovery composition + AutoWalletManagerProvider.",
+  "license": "MIT",
+  "author": "Pedro Filho <pedro@filho.me>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedroapfilho/butr.git",
+    "directory": "packages/wallets"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run clean && tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "lint": "oxlint src",
+    "prepack": "pnpm run build",
+    "prepare": "pnpm run build",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@butr/core": "workspace:*",
+    "@butr/evm": "workspace:*",
+    "@butr/react": "workspace:*",
+    "@butr/svm": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "zustand": ">=4.0.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/react": "^19.0.0",
+    "react": "^19.2.6",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6",
+    "zustand": "^5.0.0"
+  }
+}

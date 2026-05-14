@@ -1,4 +1,4 @@
-import type { WalletAdapter } from "../types";
+import type { WalletAdapter } from "@butr/core";
 
 /**
  * A discovery path registers itself by accepting an `emit` callback and

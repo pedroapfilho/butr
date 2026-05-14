@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDiscoveryBus } from "../discovery-bus";
 import type { DiscoveryPath } from "../discovery-bus";
-import { createMockConnector } from "../../__tests__/helpers";
+import { createMockConnector } from "./helpers";
 
 const pathThatEmits = (
   ...adapterIds: ReadonlyArray<string>

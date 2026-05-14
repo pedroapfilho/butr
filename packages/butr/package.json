@@ -57,7 +57,7 @@
     "lint": "oxlint src",
     "prepack": "pnpm run build",
     "prepare": "pnpm run build",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -66,6 +66,7 @@
     "@butr/ledger": "workspace:*",
     "@butr/react": "workspace:*",
     "@butr/svm": "workspace:*",
+    "@butr/wallets": "workspace:*",
     "@butr/walletconnect": "workspace:*"
   },
   "devDependencies": {
