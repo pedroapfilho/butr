@@ -1,0 +1,60 @@
+---
+title: Introduction
+description: butr is a set of multi-chain wallet-management primitives for React. EVM and Solana, discovered and managed through one composable hook surface.
+---
+
+butr discovers EVM (EIP-6963 / EIP-1193) and Solana (Wallet Standard) wallets,
+manages their connection state across reloads, and exposes everything through
+small composable React hooks. It does not wrap viem, wagmi, or `@solana/web3.js`
+— it sits underneath them and hands you a raw signer so you keep using whatever
+chain library you already know.
+
+## What butr is
+
+- **Multi-chain by default.** One provider, one pool. A user can connect
+  MetaMask (EVM) and Phantom (SVM) at the same time; butr tracks each platform
+  independently.
+- **Connector-shaped.** Every wallet — injected, WalletConnect, Ledger, or one
+  you write yourself — is a `WalletAdapter` plugged in through a single seam:
+  `WalletManagerConfig.createConnector`.
+- **No lock-in.** `getSigner()` returns the underlying provider. You bridge it
+  into viem / wagmi / `@solana/web3.js` / `@solana/kit` with a few lines.
+- **Modular.** Install only the packages you need. The core has no React and no
+  protocol code; protocols live in separate packages.
+
+## The package model
+
+butr is layered. Each package depends only on the ones below it.
+
+| Package | What it does | Depends on |
+| --- | --- | --- |
+| `@butr/core` | Types, the wallet store, persistence, the discovery seam. No React, no protocols. | — |
+| `@butr/react` | Provider + hooks over the store. | `@butr/core` |
+| `@butr/evm` | EIP-1193 / EIP-6963 / injected discovery and adapters. | `@butr/core` |
+| `@butr/svm` | Wallet Standard discovery and adapters for Solana. | `@butr/core` |
+| `@butr/wallets` | Batteries-included EVM+SVM discovery source (`autoDiscovery`) + combined chain registries. | core, react, evm, svm |
+| `@butr/walletconnect` | WalletConnect v2 adapter for EVM mobile wallets. | core, evm |
+| `@butr/ledger` | Ledger hardware-wallet adapter (WebUSB, signing-only). | `@butr/core` |
+| `@butr/testing` | Fake adapter + fake persistence for unit tests. | `@butr/core` |
+
+Most apps want `@butr/wallets` (it pulls in `@butr/react`, `@butr/evm`,
+`@butr/svm`, `@butr/core`). Pass `autoDiscovery()` from `@butr/wallets` to
+`WalletManagerProvider` from `@butr/react` for EVM+SVM discovery. Reach for
+the lower-level packages when you want an EVM-only bundle or a custom discovery
+pipeline.
+
+## Where to go next
+
+- [Installation](/docs/getting-started/installation) — pick your packages.
+- [Quickstart](/docs/getting-started/quickstart) — a working app in five
+  minutes with `WalletManagerProvider`.
+- [Core concepts](/docs/concepts) — the mental model: connectors, the pool,
+  platforms, hydration.
+- [Guides](/docs/guides/provider-setup) — connect, sign, send, switch chains.
+- [API reference](/docs/api/core) — every export, per package.
+
+<Callout type="info">
+  All code in these docs is taken from the runnable demo apps and package tests
+  in [the butr repository](https://github.com/pedroapfilho/butr), not invented.
+  Each guide cites its source.
+</Callout>

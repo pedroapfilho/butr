@@ -1,0 +1,127 @@
+---
+title: Provider setup
+description: One WalletManagerProvider with flat props — auto-discovery, EVM-only, manual, or composed.
+---
+
+There is one provider: `WalletManagerProvider` from `@butr/react`. You control
+discovery by passing a `discovery` prop (a `WalletSource`) or a `createConnector`
+prop, or both. Pick the setup that fits your bundle constraints.
+
+## Auto (batteries-included)
+
+Use `autoDiscovery()` from `@butr/wallets`. It discovers EVM (EIP-6963) and SVM
+(Wallet Standard) wallets and persists state to `localStorage`. Hoist the source
+to module scope so it is created once.
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider discovery={discovery} storageKeyPrefix="butr-demo">
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider };
+```
+
+<Callout type="info">
+  **Source:** `apps/demo-vite/src/wallet-provider.tsx` (auto, EVM + SVM) in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-vite).
+</Callout>
+
+## EVM-only (no `@butr/wallets` or `@butr/svm` in the bundle)
+
+Build the `WalletSource` yourself with `createWalletSource` from `@butr/core`
+and `discoverEvmAdapters` from `@butr/evm`. The provider API is identical; only
+the `discovery` value changes. Again, hoist to module scope.
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { createWalletSource } from "@butr/core";
+import { WalletManagerProvider, useDiscoveredWallets } from "@butr/react";
+import { discoverEvmAdapters } from "@butr/evm";
+
+// EVM-only: @butr/react + @butr/evm. No @butr/svm / @butr/wallets in the
+// bundle — discovery is a WalletSource built from the EVM discoverer.
+const evmDiscovery = createWalletSource(discoverEvmAdapters);
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider discovery={evmDiscovery} storageKeyPrefix="butr-demo">
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider, useDiscoveredWallets };
+```
+
+This is the pattern used by `demo-next` and `demo-tanstack-start`; both
+re-export `useDiscoveredWallets` from `@butr/react` so consuming files import it
+from the local `wallet-provider` module.
+
+<Callout type="info">
+  **Source:** `apps/demo-next/src/wallet-provider.tsx` and
+  `apps/demo-tanstack-start/src/wallet-provider.tsx`.
+</Callout>
+
+## Manual / custom
+
+Skip `discovery` and pass `createConnector` instead. butr calls
+`createConnector(id)` whenever it needs an adapter; return the adapter or
+`null`. This is the right pattern for a static list of pre-built connectors
+(WalletConnect, Ledger, etc.) with no ambient discovery.
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletManagerProvider } from "@butr/react";
+import { myWalletConnectConnector } from "./connectors";
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider
+    createConnector={(id) => (id === "walletconnect" ? myWalletConnectConnector : null)}
+    storageKeyPrefix="my-app"
+  >
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider };
+```
+
+See [Connectors](/docs/connectors/walletconnect) for pre-built connector
+packages.
+
+## Composed (discovery + manual connectors)
+
+Pass both `discovery` and `createConnector`. butr resolves the discovered
+adapter first; `createConnector` handles any id not found in the discovery
+source. This lets you mix injected wallets (EIP-6963) with static connectors
+(WalletConnect) in one pool.
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { myWalletConnectConnector } from "./connectors";
+
+const discovery = autoDiscovery();
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider
+    discovery={discovery}
+    createConnector={(id) => (id === "walletconnect" ? myWalletConnectConnector : null)}
+    storageKeyPrefix="my-app"
+  >
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider };
+```
+
+See [Connectors](/docs/connectors/walletconnect) for the WalletConnect
+connector package.

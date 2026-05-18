@@ -1,0 +1,131 @@
+---
+title: "@butr/react"
+description: The provider and every hook, grouped by what they do.
+---
+
+## Provider
+
+### `WalletManagerProvider`
+
+```tsx
+<WalletManagerProvider discovery={discovery}>{children}</WalletManagerProvider>
+```
+
+All props are flat — there is no nested `config` object. Props captured once at
+mount; later changes are silently ignored. Pass stable references (module-level
+values, `useRef`, `useCallback`).
+
+| Prop | Type | Notes |
+| --- | --- | --- |
+| `children` | `React.ReactNode` | Required. |
+| `discovery` | `WalletSource` | Auto-discovery source (e.g. `autoDiscovery()`). Omit to skip auto-discovery; no protocol code enters the bundle. |
+| `connectors` | `Array<ConnectorMeta>` | Metadata for explicitly-registered connectors. |
+| `createConnector` | `(id: string) => WalletAdapter \| null` | Explicit connector factory. Resolved after `discovery`. |
+| `onConnect` | `WalletManagerConfig["onConnect"]` | Lifecycle callback. |
+| `onConnectError` | `WalletManagerConfig["onConnectError"]` | Lifecycle callback. |
+| `onDisconnect` | `WalletManagerConfig["onDisconnect"]` | Lifecycle callback. |
+| `onHydrated` | `WalletManagerConfig["onHydrated"]` | Lifecycle callback. |
+| `onReset` | `WalletManagerConfig["onReset"]` | Lifecycle callback. |
+| `onSlowConnect` | `WalletManagerConfig["onSlowConnect"]` | Lifecycle callback. |
+| `onStorageError` | `WalletManagerConfig["onStorageError"]` | Lifecycle callback. |
+| `slowConnectThresholdMs` | `number` | Threshold before `onSlowConnect` fires. |
+| `storage` | `WalletPersistence` | Custom storage. Defaults to `localStorage`. |
+| `storageKeyPrefix` | `string` | Prefix for all persisted keys. |
+
+Also exports `WalletStoreContext` and `useWalletStoreContext()` (the raw store,
+used in custom discovery wiring).
+
+## Sync hooks — read state
+
+| Hook | Returns |
+| --- | --- |
+| `useConnectionStatus()` | `"idle" \| "connecting" \| "success" \| "error"` |
+| `useIsConnecting()` | `boolean` |
+| `useConnectingConnectorId()` | `string \| null` |
+| `useActiveConnectorId()` | `string \| null` |
+| `useConnectionError()` | `ConnectionError \| null` |
+| `useWalletConnected()` | `boolean` (pool non-empty) |
+| `useIsHydrated()` | `boolean` |
+| `useIsUserDisconnected()` | `boolean` (session-scoped) |
+| `usePool()` | `Map<string, ConnectedWallet>` |
+| `useConnectedWallets()` | `Array<ConnectedWallet>` |
+| `useSelection()` | `Map<ChainPlatform, string>` |
+| `useActiveWallet()` | `ConnectedWallet \| undefined` |
+| `useSelectedWallet(platform)` | `ConnectedWallet \| undefined` |
+| `useIsPlatformConnected(platform)` | `boolean` |
+| `useAccounts(connectorId?)` | `ReadonlyArray<Account>` (active wallet if omitted) |
+| `useDiscoveredWallets()` | `ReadonlyArray<WalletAdapter>` (empty without `discovery`) |
+
+### Stable accessors (return functions, safe in callbacks/deps)
+
+- `useGetWallet()` → `(connectorId) => ConnectedWallet | undefined`
+- `useGetSelectedWallet()` → `(platform) => ConnectedWallet | undefined`
+- `useGetConnectorInstance()` → `(id) => WalletAdapter | null`
+
+### `useDiscoveredWallets()`
+
+```tsx
+import { useDiscoveredWallets } from "@butr/react";
+
+const wallets = useDiscoveredWallets();
+// ReadonlyArray<WalletAdapter> — empty when no `discovery` prop was passed
+```
+
+Live list of adapters announced via the `discovery` source since the provider
+mounted. Sourced from `@butr/react`.
+
+### `useWalletStore(selector)`
+
+Direct store access with shallow equality on the result (returning an inline
+object/array is safe — no infinite loop).
+
+```tsx
+const { pool, activeConnectorId } = useWalletStore((s) => ({
+  pool: s.pool,
+  activeConnectorId: s.activeConnectorId,
+}));
+```
+
+## Mutation hooks — change state
+
+Each returns a stable function.
+
+| Hook | Function |
+| --- | --- |
+| `useConnectWallet()` | `(connectorId, onSuccess?, onError?) => Promise<void>` |
+| `useDisconnectWallet()` | `(connectorId) => void` |
+| `useSetActiveConnector()` | `(connectorId \| null) => void` |
+| `useSetSelection()` | `(platform, connectorId \| null) => void` |
+| `useResetWallet()` | `() => void` |
+| `useUpdateWalletAccount()` | `(connectorId, account) => void` |
+| `useRefreshWallet()` | `(connectorId) => void` |
+| `useRequestAccounts()` | `(connectorId) => Promise<void>` |
+| `useResetConnectionStatus()` | `() => void` |
+| `useSetConnectionError()` | `(error \| null) => void` |
+
+`useRequestAccounts` opens the wallet's account-selection UI (EVM:
+`wallet_requestPermissions`) then refreshes the pool entry's `accounts`. Hide
+the trigger when `wallet.connector.requestAccounts` is undefined.
+
+## Async hooks
+
+```ts
+type AsyncState<T> =
+  | { data: null; error: null; status: "idle" }
+  | { data: null; error: null; status: "loading" }
+  | { data: T; error: null; status: "success" }
+  | { data: null; error: unknown; status: "error" };
+
+type UseBalanceResult = AsyncState<Balance> & { refetch: () => void };
+```
+
+| Hook | Returns |
+| --- | --- |
+| `useSigner(connectorId?)` | `AsyncState<unknown>` |
+| `useBalance(connectorId?, mint?)` | `UseBalanceResult` |
+| `useWalletEntry(connectorId?)` | `ConnectedWallet \| undefined` |
+
+These use `walletEqual` so internal metadata changes don't invalidate the
+signer/balance. See [balances](/docs/guides/balances).
+
+**Source:** `packages/react/src/index.ts`, `hooks.ts`, `hooks-async.ts`.

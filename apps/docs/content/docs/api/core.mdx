@@ -1,0 +1,124 @@
+---
+title: "@butr/core"
+description: Types, the wallet store, persistence, and the discovery seam. No React, no protocols.
+---
+
+## Functions
+
+### `createWalletSource(subscribe): WalletSource`
+
+```ts
+import { createWalletSource } from "@butr/core";
+
+const source = createWalletSource(discoverEvmAdapters);
+// Pass as: <WalletManagerProvider discovery={source}>
+```
+
+Wraps a bare `(onAdapter: (adapter: WalletAdapter) => void) => () => void`
+discoverer into a `WalletSource`. Use this when you want EVM-only or SVM-only
+discovery without importing `@butr/wallets`:
+
+```ts
+import { createWalletSource } from "@butr/core";
+import { discoverEvmAdapters } from "@butr/evm";
+import { discoverSvmAdapters } from "@butr/svm";
+
+const evmOnly = createWalletSource(discoverEvmAdapters);
+const svmOnly = createWalletSource(discoverSvmAdapters);
+```
+
+`WalletSource` — the discovery seam — is `{ subscribe(onAdapter): () => void }`.
+
+### `createWalletStore(config: WalletManagerConfig): WalletStore`
+
+Creates the Zustand-backed wallet store. `@butr/react`'s provider wraps this;
+call it directly only for non-React hosts.
+
+### `mapConnectionError(raw: unknown): ConnectionError`
+
+Normalises any thrown value into a tagged
+[`ConnectionError`](/docs/concepts/errors).
+
+### `walletEqual(a: ConnectedWallet, b: ConnectedWallet): boolean`
+
+Identity comparison used by the async hooks (compares connector id + active
+account address + chain id). Stable wallets don't re-trigger
+`useSigner`/`useBalance`.
+
+## Storage
+
+### `createBrowserStorageDriver(): StorageDriver`
+
+`localStorage`-backed driver (the default).
+
+### `createCookieStorageDriver(options: CookieDriverOptions): StorageDriver`
+
+Cookie-backed driver. Options cover domain, path, `maxAgeSec`, `sameSite`,
+`secure`.
+
+### `createMemoryStorageDriver(): StorageDriver`
+
+In-memory driver — no persistence.
+
+### `class WalletStorage`
+
+The default `WalletPersistence` implementation. Construct with
+`{ keyPrefix, persistent, session }` driver triple. See
+[persistence](/docs/concepts/persistence) and
+[custom storage](/docs/guides/custom-storage).
+
+## Types
+
+Store: `ConnectionStatus`, `WalletStore`, `WalletStoreState`.
+
+Wallet model: `Account`, `Balance`, `ChainBase`, `ChainPlatform`,
+`ConnectedWallet`, `Connector`, `ConnectorEvent`, `ConnectorMeta`, `Wallet`,
+`WalletAdapter`, `WalletAvailability`, `WalletCapabilities`,
+`WalletManagerConfig`, `HydrationOutcome`.
+
+Errors: `ConnectionError`, `ConnectionErrorKind`.
+
+Storage: `BrowserStorageDrivers`, `CookieDriverOptions`, `MaybePromise`,
+`StorageDriver`, `StoredPoolEntry`, `StoredPoolRecord`,
+`StoredSelectionRecord`, `WalletPersistence`.
+
+Discovery seam: `WalletSource` — `{ subscribe(onAdapter): () => void }`.
+
+## Key shapes
+
+```ts
+type WalletAdapter = Connector & Wallet;
+
+type ConnectedWallet = {
+  account: Account; // active account
+  accounts: Array<Account>; // all exposed accounts (≥ 1)
+  connector: WalletAdapter;
+};
+
+type Account = { chain: ChainBase; id: string; walletAddress: string };
+
+type ChainBase = {
+  id: string; // CAIP-2, e.g. "eip155:1"
+  name: string;
+  namespace: string; // "eip155" | "solana"
+  reference: string; // "1" | "5eykt4Us…"
+};
+
+type Balance = {
+  decimals: number;
+  formatted: string;
+  symbol: string;
+  value: bigint;
+};
+
+type HydrationOutcome = {
+  restoredIds: Array<string>;
+  pendingIds: Array<string>;
+  dropped: Array<{ connectorId: string; reason: unknown }>;
+};
+```
+
+See [connectors and wallets](/docs/concepts/connectors-and-wallets) for the
+full `Connector` / `Wallet` / `WalletManagerConfig` definitions.
+
+**Source:** `packages/core/src/index.ts`.

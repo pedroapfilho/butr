@@ -10,4 +10,16 @@ type WalletSource = {
   subscribe(onAdapter: (adapter: WalletAdapter) => void): () => void;
 };
 
+/**
+ * Wrap a bare `subscribe` function (the exact shape of
+ * `discoverEvmAdapters` / `discoverSvmAdapters`) into a `WalletSource`,
+ * so an EVM-only app can do
+ * `createWalletSource(discoverEvmAdapters)` without importing anything
+ * protocol-bearing beyond `@butr/evm`.
+ */
+const createWalletSource = (
+  subscribe: (onAdapter: (adapter: WalletAdapter) => void) => () => void,
+): WalletSource => ({ subscribe });
+
 export type { WalletSource };
+export { createWalletSource };

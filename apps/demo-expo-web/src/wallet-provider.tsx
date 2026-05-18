@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 import { WalletStorage } from "@butr/core";
-import { AutoWalletManagerProvider } from "@butr/wallets";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
 import { asyncStorageDriver } from "./async-storage-driver";
 
 const KEY_PREFIX = "butr-demo";
+
+const discovery = autoDiscovery();
 
 const storage = new WalletStorage({
   keyPrefix: KEY_PREFIX,
@@ -12,9 +15,13 @@ const storage = new WalletStorage({
 });
 
 const WalletProvider = ({ children }: { children: ReactNode }) => (
-  <AutoWalletManagerProvider storage={storage} storageKeyPrefix={KEY_PREFIX}>
+  <WalletManagerProvider
+    discovery={discovery}
+    storage={storage}
+    storageKeyPrefix={KEY_PREFIX}
+  >
     {children}
-  </AutoWalletManagerProvider>
+  </WalletManagerProvider>
 );
 
 export { WalletProvider };

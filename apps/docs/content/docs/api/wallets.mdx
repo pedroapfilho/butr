@@ -1,0 +1,60 @@
+---
+title: "@butr/wallets"
+description: Batteries-included discovery source — autoDiscovery(), composed EVM + SVM discovery, combined chains.
+---
+
+## Discovery
+
+### `autoDiscovery(options?: DiscoverOptions): WalletSource`
+
+The headline export. Returns a `WalletSource` that composes EVM (EIP-6963 +
+injected fallback) and SVM (Wallet Standard) discovery. Pass it directly as the
+`discovery` prop on `WalletManagerProvider`:
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+// Hoist to module scope so the reference is stable.
+const discovery = autoDiscovery();
+
+export function App() {
+  return (
+    <WalletManagerProvider discovery={discovery}>
+      {children}
+    </WalletManagerProvider>
+  );
+}
+```
+
+`DiscoverOptions = { evm?; svm?; injected? }`. Omit options to enable
+everything. `injected` defaults to `true` whenever `evm` is enabled.
+
+## Discovery primitives
+
+### `discoverWalletAdapters(onAdapter, options?: DiscoverOptions): () => void`
+
+Composed EVM + SVM discovery. Calls `onAdapter` for each wallet found and
+returns an unsubscribe function.
+
+### `resolveDiscoverOptions(auto: true | false | DiscoverOptions)`
+
+Normalises an options value. `true` enables everything. Object form is opt-in:
+unspecified flags default to `false`; `injected` defaults to `true` only when
+`evm` is true. Returns `{ active, evm, injected, svm }`.
+
+### `createDiscoveryBus(onAdapter): DiscoveryBus`
+
+Lower-level multiplexer. Types: `DiscoveryBus`, `DiscoveryPath`.
+
+## Chains
+
+- `CHAINS` — `{ evm: Record<…>, svm: Record<…> }`.
+- `CHAINS_BY_PLATFORM` — `Record<"evm" | "svm", ChainBase[]>`. Index with
+  `wallet.connector.chainPlatform`.
+
+## Types
+
+`DiscoverOptions`, `DiscoveryBus`, `DiscoveryPath`.
+
+**Source:** `packages/wallets/src/index.ts`.

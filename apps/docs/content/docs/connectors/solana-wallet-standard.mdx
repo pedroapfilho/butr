@@ -1,0 +1,74 @@
+---
+title: Solana Wallet Standard
+description: Wallet Standard discovery for Solana wallets, via @butr/svm.
+---
+
+`@butr/svm` discovers Solana wallets (Phantom, Solflare, Backpack, Magic Eden,
+…) through the [Wallet Standard](https://github.com/wallet-standard/wallet-standard).
+
+## Discovery
+
+`autoDiscovery()` from `@butr/wallets` handles SVM discovery automatically.
+For an SVM-only setup, wire it directly with `createWalletSource`:
+
+```ts
+import { createWalletSource } from "@butr/core";
+import { discoverSvmAdapters } from "@butr/svm";
+import { WalletManagerProvider } from "@butr/react";
+
+const discovery = createWalletSource(discoverSvmAdapters);
+
+<WalletManagerProvider discovery={discovery}>
+  {children}
+</WalletManagerProvider>
+```
+
+<Callout type="info">
+  `@butr/svm` lazily imports `@wallet-standard/app` (an optional peer
+  dependency). That asynchronous warmup is one reason restored SVM wallets can
+  land in `pendingIds` for a moment — see
+  [hydration](/docs/concepts/hydration).
+</Callout>
+
+## Capabilities
+
+Resolved from the wallet's advertised Wallet Standard features via
+`resolveWalletStandardCapabilities`:
+
+- `signMessage` — true only if the wallet advertises `solana:signMessage`.
+- `sendTransaction` — true only if it advertises
+  `solana:signAndSendTransaction`.
+- `subscribe` — true via the Standard `change` event.
+- `switchChain` — local state + per-call `chain` input when more than one chain
+  is advertised.
+- `requestAccounts` — generally a no-op: Standard wallets expose all accounts
+  at once, there is no picker.
+
+Always branch on [capabilities](/docs/concepts/capabilities).
+
+## Working with the signer
+
+`getSigner()` on an SVM adapter returns the `WalletStandardWallet`. You call
+its features directly (or bridge into a Solana library):
+
+```ts
+const walletStd = (await wallet.connector.getSigner()) as WalletStandardWallet;
+const feature = walletStd.features["solana:signMessage"];
+const account = walletStd.accounts[0];
+const [output] = await feature.signMessage({ account, message });
+```
+
+See [Solana integrations](/docs/integrations/solana-web3js) for the full
+build-and-send flow with `@solana/web3.js`, `@solana/kit`, and
+`@solana/wallet-adapter-react`.
+
+## Chains
+
+`SVM_CHAINS_LIST` / `SVM_CHAINS` ship Solana mainnet, testnet, and devnet.
+`slugify` and `resolveWalletStandardCapabilities` are exported for adapter
+authors.
+
+<Callout type="info">
+  **Source:** `packages/svm/src`. Used by all `apps/demo-with-solana-*` demos
+  and (via `@butr/wallets`) `apps/demo-vite`.
+</Callout>

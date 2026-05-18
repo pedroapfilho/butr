@@ -1,0 +1,66 @@
+---
+title: Pool, selection, and active
+description: Three independent pieces of state — every connected wallet, the chosen wallet per platform, and the one wallet in focus now.
+---
+
+butr keeps three distinct things. Confusing them is the most common source of
+bugs, so they are kept separate on purpose.
+
+## Pool
+
+Every connected wallet, keyed by `connectorId`.
+
+```ts
+// Map<string, ConnectedWallet>
+const pool = usePool();
+const wallets = useConnectedWallets(); // pool projected as an array
+```
+
+A user can have many wallets in the pool at once (MetaMask + Phantom +
+WalletConnect). Adding or removing one never implicitly changes selection or
+active state.
+
+## Selection — per platform
+
+A `Map<ChainPlatform, connectorId>`: which wallet is chosen for `evm` and which
+for `svm`. The two are independent — selecting an EVM wallet does nothing to
+SVM.
+
+```ts
+const selection = useSelection(); // Map<"evm" | "svm", string>
+const evmWallet = useSelectedWallet("evm");
+const isEvmConnected = useIsPlatformConnected("evm");
+const setSelection = useSetSelection();
+setSelection("evm", "metamask");
+```
+
+## Active — the one in focus
+
+A single global `activeConnectorId`: the wallet the user is interacting with
+right now. This is what most single-wallet UIs read.
+
+```ts
+const active = useActiveWallet(); // ConnectedWallet | undefined
+const setActive = useSetActiveConnector();
+setActive("phantom");
+```
+
+## How they relate
+
+They are **independent buckets**. Setting selection does not change active;
+setting active does not change selection. A wallet can be selected for EVM and
+not be the active wallet at all.
+
+- Single-wallet apps: read `useActiveWallet()`, ignore selection.
+- Multi-chain apps that act on both platforms at once: read
+  `useSelectedWallet("evm")` and `useSelectedWallet("svm")`.
+- A "make active" button in a multi-wallet list: call `useSetActiveConnector()`
+  (this is exactly what the `demo-vite` reference does).
+
+<Callout type="info">
+  Stable accessors `useGetWallet()` and `useGetSelectedWallet()` return
+  functions instead of subscribing — use them inside callbacks and effect
+  bodies to avoid re-renders.
+</Callout>
+
+**Source:** `packages/react/src/hooks.ts`, `packages/core/src/store`.

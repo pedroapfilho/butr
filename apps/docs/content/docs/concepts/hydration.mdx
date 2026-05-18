@@ -1,0 +1,73 @@
+---
+title: Hydration
+description: Restoring the previous session is asynchronous because wallet adapters announce themselves asynchronously.
+---
+
+On mount, butr tries to restore the wallets from the last session. The catch:
+wallet adapters announce themselves *asynchronously* (EIP-6963 dispatches
+events; the Solana Wallet Standard module is lazily imported). So a stored
+wallet's adapter may not exist yet at restore time.
+
+## The three buckets
+
+`onHydrated` receives a `HydrationOutcome`:
+
+```ts
+type HydrationOutcome = {
+  restoredIds: Array<string>; // came back fully — usable now
+  pendingIds: Array<string>; // adapter not announced yet — retried automatically
+  dropped: Array<{ connectorId: string; reason: unknown }>; // restore failed, removed from storage
+};
+```
+
+- **`restoredIds`** — live in the pool, use immediately.
+- **`pendingIds`** — the adapter wasn't registered yet. The runtime retries
+  each one when discovery announces a matching id, so most restore within a few
+  hundred milliseconds of mount.
+- **`dropped`** — the connector threw mid-restore. These are removed from
+  storage; surface "Couldn't reconnect Phantom — connect again" if you want.
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+<WalletManagerProvider
+  discovery={discovery}
+  onHydrated={(outcome) => {
+    console.log("restored", outcome.restoredIds);
+    console.log("pending", outcome.pendingIds);
+    console.log("dropped", outcome.dropped);
+  }}
+>
+```
+
+## Why `useIsHydrated()` matters
+
+Until the first hydration pass finishes, the pool is empty. If you render based
+on "is anything connected" before that, you flash a logged-out UI on every
+reload. Every reference app does this:
+
+```tsx
+const isHydrated = useIsHydrated();
+if (!isHydrated) return <p>Loading…</p>;
+```
+
+## Late restore merges, never replaces
+
+If a pending adapter announces and completes its restore *before* the main
+hydration pass finishes, the store **merges** it into the pool rather than
+overwriting. Both eager- and late-restored entries survive.
+
+When you pass `discovery` to `WalletManagerProvider`, the provider calls
+`_tryRestoreFromPending` internally each time a new adapter is announced — you
+do not need to wire this yourself. You only call it directly if you implement a
+fully custom `WalletSource` outside the provider:
+
+```ts
+void store.getState()._tryRestoreFromPending(adapter.id);
+```
+
+**Source:** `packages/core/src/store/wallet-store.ts`,
+`packages/core/src/types/wallet.ts`.

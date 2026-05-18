@@ -1,0 +1,63 @@
+---
+title: Platforms and chains
+description: Every connector is evm or svm. The two platforms are tracked independently. Chains use CAIP-2 identifiers.
+---
+
+## ChainPlatform
+
+```ts
+type ChainPlatform = "evm" | "svm";
+```
+
+Every connector carries a `chainPlatform`. butr tracks `evm` and `svm`
+independently — a user can connect MetaMask (`evm`) and Phantom (`svm`)
+simultaneously, and each platform has its own selected wallet. A single wallet
+that supports both (Phantom EVM + Phantom SVM) appears as two pool entries with
+different `chainPlatform` values.
+
+## ChainBase — the CAIP-2 shape
+
+butr only needs four fields per chain. It follows
+[CAIP-2](https://chainagnostic.org/CAIPs/caip-2) and never inspects beyond
+these.
+
+```ts
+type ChainBase = {
+  id: string; // "eip155:1", "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+  name: string; // "Ethereum", "Solana"
+  namespace: string; // "eip155", "solana"
+  reference: string; // "1", "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"
+};
+```
+
+Chain ids are opaque strings to butr — it never parses them. You extend
+`ChainBase` with app-specific fields (logos, explorers, RPC URLs) via
+structural typing; butr passes the whole object through untouched.
+
+## Chain registries
+
+Static lists ship with the protocol packages. You don't have to use them — any
+`ChainBase`-shaped object works — but they cover the common networks.
+
+| Export | Package | Contents |
+| --- | --- | --- |
+| `EVM_CHAINS`, `EVM_CHAINS_LIST` | `@butr/evm` | Ethereum (+ Sepolia, Holesky), Polygon, Arbitrum, Optimism, Base, and more. |
+| `SVM_CHAINS`, `SVM_CHAINS_LIST` | `@butr/svm` | Solana mainnet / testnet / devnet. |
+| `CHAINS`, `CHAINS_BY_PLATFORM` | `@butr/wallets` | Both of the above, keyed by platform. |
+
+`CHAINS_BY_PLATFORM[wallet.connector.chainPlatform]` is the idiomatic way to
+get the right chain list for a connected wallet — see
+[multi-chain switching](/docs/guides/multi-chain).
+
+## EVM vs. SVM differences
+
+| | EVM | SVM |
+| --- | --- | --- |
+| Discovery | EIP-6963 (+ injected fallback) | Wallet Standard |
+| Accounts exposed | one or many (MetaMask multi-account) | all at once |
+| `requestAccounts` | prompts via `wallet_requestPermissions` | no picker — resolves as a refresh |
+| Chain switching | real, via `wallet_switchEthereumChain` | local state + per-call `chain` input |
+| Signature format | EIP-191 / 712, input echoed | Solana format, may re-encode `signedMessage` |
+
+**Source:** `packages/core/src/types/chain.ts`,
+`packages/{evm,svm,wallets}/src/chains.ts`.

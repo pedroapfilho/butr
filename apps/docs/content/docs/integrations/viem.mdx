@@ -1,0 +1,70 @@
+---
+title: viem
+description: Wrap butr's EIP-1193 provider with viem's createWalletClient.
+---
+
+butr owns wallet discovery and connection state. viem owns chain abstraction
+and RPC. The bridge is one line: `getSigner()` on an EVM adapter returns the
+raw EIP-1193 provider — exactly what viem's `custom()` transport wants.
+
+## Wire the wallet client
+
+```tsx
+import { createWalletClient, custom, type EIP1193Provider } from "viem";
+import { sepolia } from "viem/chains";
+
+useEffect(() => {
+  let cancelled = false;
+  void (async () => {
+    const provider = (await wallet.connector.getSigner()) as EIP1193Provider;
+    if (cancelled) return;
+    setWalletClient(
+      createWalletClient({
+        account,
+        chain: sepolia,
+        transport: custom(provider),
+      }),
+    );
+  })();
+  return () => {
+    cancelled = true;
+  };
+}, [account, wallet.connector]);
+```
+
+`account` is `wallet.account.walletAddress` cast to viem's `Address`.
+
+## Read, sign, send
+
+Reads go through viem's own public client (its RPC, not the wallet's, so you
+don't double-spend the wallet on `eth_getBalance`):
+
+```ts
+const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+const wei = await publicClient.getBalance({ address: account });
+const eth = `${formatEther(wei)} ETH`;
+```
+
+Signing and sending go through the wallet client (the real wallet):
+
+```ts
+const sig = await walletClient.signMessage({ account, message: "Hello from butr + viem" });
+
+const hash = await walletClient.sendTransaction({
+  account,
+  chain: sepolia,
+  to: BURN_ADDRESS,
+  value: parseEther("0"),
+});
+```
+
+The split is the whole point: **butr handles discovery + connection; viem
+handles chain reads, signing, and tx submission against the provider butr
+exposes.**
+
+<Callout type="info">
+  **Source:** `apps/demo-with-viem/src/app.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-with-viem).
+  Targets Sepolia. Run `pnpm dev --filter=demo-with-viem` →
+  `http://localhost:5175`.
+</Callout>

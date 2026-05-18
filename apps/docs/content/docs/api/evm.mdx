@@ -1,0 +1,53 @@
+---
+title: "@butr/evm"
+description: EIP-1193 / EIP-6963 / injected discovery, the adapter builder, chains, and byte helpers.
+---
+
+## Discovery
+
+### `discoverEvmAdapters(onAdapter): () => void`
+
+Subscribe to EIP-6963 announcements. Calls `onAdapter(adapter)` for each
+discovered wallet; returns an unsubscribe function.
+
+### `discoverInjectedAdapter(onAdapter, options: InjectedDiscoveryOptions): () => void`
+
+Last-resort fallback for legacy EIP-1193-only `window.ethereum` wallets.
+
+Constants: `ANNOUNCE_EVENT`, `REQUEST_EVENT` (EIP-6963 event names),
+`GENERIC_INJECTED_ICON` (data-URI fallback icon).
+
+## Adapter builder
+
+### `buildEvmAdapter(provider: Eip1193Provider, meta: ConnectorMeta): WalletAdapter`
+
+Wrap any EIP-1193 provider into a butr `WalletAdapter`. The basis for custom
+EVM connectors.
+
+## Helpers
+
+- `bytesToHex(bytes: Uint8Array): string`
+- `hexToBytes(hex: string): Uint8Array`
+- `chainIdHexToDecimal(hex: string): string`
+- `chainIdDecimalToHex(decimal: string): string`
+- `formatEther(wei: bigint, decimals?: number): string`
+
+## Chains
+
+- `EVM_CHAINS` — record keyed by chain id.
+- `EVM_CHAINS_LIST` — array form (use in EVM-only chain pickers).
+
+## Capabilities
+
+- `resolveEip6963Capabilities` — derive `WalletCapabilities` from EIP-6963
+  provider info.
+- `EIP6963_RDNS_WITH_REQUEST_ACCOUNTS` — RDNS allowlist for
+  `wallet_requestPermissions` support.
+
+## Types
+
+`Eip1193Provider`, `Eip1193Listener`, `Eip1193RequestArgs`,
+`Eip6963AnnounceEvent`, `Eip6963ProviderDetail`, `Eip6963ProviderInfo`,
+`InjectedDiscoveryOptions`, `Eip6963CapabilityInput`.
+
+**Source:** `packages/evm/src/index.ts`.

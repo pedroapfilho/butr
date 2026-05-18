@@ -1,0 +1,45 @@
+---
+title: "@butr/ledger"
+description: createLedgerAdapter, options, and constants.
+---
+
+Ledger hardware-wallet adapter (WebUSB). Requires the optional peer
+dependencies `@ledgerhq/hw-app-eth` and `@ledgerhq/hw-transport-webusb`.
+
+## `createLedgerAdapter(options?): Promise<WalletAdapter>`
+
+```ts
+const ledger = await createLedgerAdapter({
+  chainId: 1, // Ethereum mainnet
+  accountCount: 3, // expose 3 derivation paths
+});
+```
+
+### `LedgerOptions`
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `chainId` | `number` | `1` |
+| `accountCount` | `number` | `1` |
+| `derivationPathPrefix` | `string` | `"44'/60'/0'/0"` |
+| `id` | `string` | `"ledger"` |
+| `name` | `string` | `"Ledger"` |
+| `icon` | `string` | `LEDGER_DEFAULT_ICON` |
+| `eth` | `EthAppConstructor` | DI for tests |
+| `transport` | `TransportFactory` | DI for tests |
+
+## Constants
+
+- `LEDGER_DEFAULT_ICON: string` — default SVG data URI.
+- `LEDGER_CAPABILITIES: WalletCapabilities` — signing-only
+  (`signMessage` + `switchChain` true; everything else false).
+
+## Types
+
+`LedgerOptions`, `EthAppLike`, `EthAppConstructor`, `TransportLike`,
+`TransportFactory`.
+
+See the [Ledger connector guide](/docs/connectors/ledger) for browser-support
+and signing-only caveats.
+
+**Source:** `packages/ledger/src/index.ts`.

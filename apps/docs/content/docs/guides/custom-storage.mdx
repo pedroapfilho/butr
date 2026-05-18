@@ -1,0 +1,102 @@
+---
+title: Custom storage driver
+description: Back persistence with cookies, memory, or React Native AsyncStorage.
+---
+
+butr persists through a `StorageDriver` — a three-method get/set/remove
+interface that may be async. Wrap a driver in `WalletStorage` and pass it as
+`storage`.
+
+```ts
+type StorageDriver = {
+  getItem(key: string): MaybePromise<string | null>;
+  setItem(key: string, value: string): MaybePromise<void>;
+  removeItem(key: string): MaybePromise<void>;
+};
+```
+
+## Built-in drivers
+
+```ts
+import {
+  createBrowserStorageDriver, // localStorage (the default)
+  createCookieStorageDriver, // cookies — domain/path/SameSite/secure
+  createMemoryStorageDriver, // in-memory, no persistence
+  WalletStorage,
+} from "@butr/core";
+
+const storage = new WalletStorage({
+  keyPrefix: "myapp",
+  persistent: createCookieStorageDriver({
+    domain: "example.com",
+    maxAgeSec: 604_800,
+    path: "/",
+    sameSite: "Lax",
+    secure: true,
+  }),
+  session: createMemoryStorageDriver(),
+});
+```
+
+## React Native / Expo (AsyncStorage)
+
+The driver is async-friendly, so any `AsyncStorage`-like API works. This is the
+exact `demo-expo-web` driver:
+
+```ts title="async-storage-driver.ts"
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { StorageDriver } from "@butr/core";
+
+const asyncStorageDriver: StorageDriver = {
+  getItem: (key) => AsyncStorage.getItem(key),
+  setItem: (key, value) => AsyncStorage.setItem(key, value),
+  removeItem: (key) => AsyncStorage.removeItem(key),
+};
+
+export { asyncStorageDriver };
+```
+
+Wire it into `WalletManagerProvider`:
+
+```tsx title="wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletStorage } from "@butr/core";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { asyncStorageDriver } from "./async-storage-driver";
+
+const KEY_PREFIX = "butr-demo";
+
+const discovery = autoDiscovery();
+
+const storage = new WalletStorage({
+  keyPrefix: KEY_PREFIX,
+  persistent: asyncStorageDriver,
+  session: asyncStorageDriver,
+});
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider
+    discovery={discovery}
+    storage={storage}
+    storageKeyPrefix={KEY_PREFIX}
+  >
+    {children}
+  </WalletManagerProvider>
+);
+```
+
+<Callout type="warn">
+  AsyncStorage has no true session-storage equivalent. The demo backs both
+  drivers with the same store and accepts that session entries outlive the
+  session — harmless here, since butr's session storage only holds the
+  active-connector id, which is overwritten on the next connect. If you need
+  strict session semantics, namespace session keys and sweep them on startup.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-expo-web/src/async-storage-driver.ts` and
+  `apps/demo-expo-web/src/wallet-provider.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-expo-web).
+  See also [persistence concepts](/docs/concepts/persistence).
+</Callout>

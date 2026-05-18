@@ -1,0 +1,75 @@
+---
+title: Multi-wallet and chain switching
+description: Hold several wallets at once, choose the active one, and switch an EVM wallet's chain.
+---
+
+## Several wallets at once
+
+The pool holds every connected wallet. A user can connect MetaMask and Phantom
+together; `useConnectedWallets()` returns both. Mark one the active wallet with
+`useSetActiveConnector()`:
+
+```tsx
+import { useActiveWallet, useSetActiveConnector } from "@butr/react";
+
+const active = useActiveWallet();
+const setActive = useSetActiveConnector();
+
+const isActive = active?.connector.id === wallet.connector.id;
+{isActive ? null : (
+  <button onClick={() => setActive(wallet.connector.id)}>Make active</button>
+)}
+```
+
+See [pool, selection, active](/docs/concepts/pool-selection-active) for why
+these are separate.
+
+## Switch an EVM wallet's chain
+
+`wallet.connector.switchChain(chain)` takes a `ChainBase`. Get the right chain
+list for the wallet's platform from `CHAINS_BY_PLATFORM`:
+
+```tsx
+import { CHAINS_BY_PLATFORM } from "@butr/wallets";
+
+const ChainPicker = ({ wallet }) => {
+  const chains = CHAINS_BY_PLATFORM[wallet.connector.chainPlatform];
+  return (
+    <select
+      value={wallet.account.chain.id}
+      onChange={(e) => {
+        const target = chains.find((c) => c.id === e.target.value);
+        if (target) void wallet.connector.switchChain(target);
+      }}
+    >
+      {chains.map((chain) => (
+        <option key={chain.id} value={chain.id}>
+          {chain.name}
+        </option>
+      ))}
+    </select>
+  );
+};
+```
+
+Gate the picker on the capability — not every wallet can switch:
+
+```tsx
+{wallet.connector.capabilities.switchChain ? <ChainPicker wallet={wallet} /> : null}
+```
+
+EVM wallets switch for real via `wallet_switchEthereumChain`. SVM "switching"
+is local state plus a per-call `chain` input. The new chain shows up on the
+next `accountChanged` event, bridged automatically into
+`wallet.account.chain`.
+
+<Callout type="info">
+  EVM-only manual setups don't bundle `@butr/wallets`. Use `EVM_CHAINS_LIST`
+  from `@butr/evm` instead — `demo-next` does exactly this.
+</Callout>
+
+<Callout type="info">
+  **Source:** `ChainPicker` in `apps/demo-vite/src/app.tsx` (uses
+  `CHAINS_BY_PLATFORM`) and `apps/demo-next/src/app/page.tsx` (uses
+  `EVM_CHAINS_LIST`).
+</Callout>

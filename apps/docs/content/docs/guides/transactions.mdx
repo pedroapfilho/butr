@@ -1,0 +1,88 @@
+---
+title: Send a transaction
+description: butr exposes the signer; you build and submit transactions with your chain library.
+---
+
+butr is deliberately not a transaction-building library. It hands you the
+underlying signer via `wallet.connector.getSigner()` and you submit through
+viem / wagmi / `@solana/web3.js` / `@solana/kit`. The connector also has
+`sendTx` / `sendTxToChain` for the simple path, but real apps usually go
+through their chain library.
+
+## EVM with viem
+
+`getSigner()` on an EVM adapter returns the raw EIP-1193 provider — exactly
+what viem's `custom()` transport wants:
+
+```ts
+const provider = (await wallet.connector.getSigner()) as EIP1193Provider;
+const walletClient = createWalletClient({
+  account,
+  chain: sepolia,
+  transport: custom(provider),
+});
+
+const hash = await walletClient.sendTransaction({
+  account,
+  chain: sepolia,
+  to: BURN_ADDRESS,
+  value: parseEther("0"),
+});
+```
+
+## EVM with wagmi
+
+Bridge the same provider into wagmi's `injected` connector via
+`target.provider`, run wagmi's connect lifecycle once (it resolves silently —
+butr already authorised the dapp), then use `@wagmi/core` actions:
+
+```ts
+const provider = (await wallet.connector.getSigner()) as EIP1193Provider;
+const cfg = createConfig({
+  chains: [sepolia],
+  connectors: [injected({ target: { id, name, provider: () => provider } })],
+  transports: { [sepolia.id]: http() },
+});
+await connect(cfg, { connector: cfg.connectors[0]! });
+
+const hash = await sendTransaction(cfg, {
+  chainId: sepolia.id,
+  to: BURN_ADDRESS,
+  value: parseEther("0"),
+});
+```
+
+## Solana
+
+`getSigner()` on an SVM adapter returns the `WalletStandardWallet`. Build the
+transaction with your Solana library, then submit via the
+`solana:signAndSendTransaction` feature. The `@solana/web3.js` path:
+
+```ts
+const walletStd = (await wallet.connector.getSigner()) as WalletStandardWallet;
+const feature = walletStd.features["solana:signAndSendTransaction"];
+const account = walletStd.accounts[0];
+const [output] = await feature.signAndSendTransaction({
+  account,
+  chain: "solana:devnet",
+  transaction: new Uint8Array(serialisedTx),
+});
+// output.signature is the raw signature (base58-encode for display)
+```
+
+The [`@solana/kit` integration](/docs/integrations/solana-kit) shows the same
+flow with kit's functional `pipe()` message builder.
+
+<Callout type="warn">
+  Solana wallets advertise features unevenly — Phantom exposes
+  `solana:signAndSendTransaction`; some don't expose
+  `solana:signTransaction` at all. Feature-detect (`if (!feature) throw`) and
+  branch on `wallet.connector.capabilities.sendTransaction`.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-with-viem`, `apps/demo-with-wagmi`,
+  `apps/demo-with-solana-web3js`, `apps/demo-with-solana-kit` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps). These
+  target Sepolia / Solana devnet.
+</Callout>

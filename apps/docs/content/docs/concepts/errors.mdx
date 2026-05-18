@@ -1,0 +1,64 @@
+---
+title: Errors
+description: How thrown values from wildly different wallet SDKs become one tagged ConnectionError union.
+---
+
+Wallet SDKs throw inconsistently: MetaMask uses EIP-1193 numeric codes, Phantom
+throws stringly-typed errors, embedded SDKs throw their own classes. butr
+normalises all of it into one tagged union so you branch on `kind` instead of
+regexing message strings.
+
+```ts
+type ConnectionError =
+  | { kind: "UserRejected"; message: string }
+  | { kind: "RequestPending"; message: string }
+  | { kind: "WalletLocked"; message: string }
+  | { kind: "ChainMismatch"; message: string; expectedChain?: string; actualChain?: string }
+  | { kind: "NotConnected"; message: string }
+  | { kind: "Timeout"; message: string }
+  | { kind: "Unknown"; message: string; cause?: unknown };
+```
+
+`message` is always present and human-readable. When `kind` is `Unknown`,
+`cause` preserves the original thrown value so you can inspect the raw error.
+
+## Reading the error
+
+```tsx
+import { useConnectionError } from "@butr/react";
+
+const error = useConnectionError();
+if (error?.kind === "UserRejected") {
+  // user clicked "reject" — usually no UI needed
+} else if (error?.kind === "WalletLocked") {
+  // prompt: "Unlock your wallet and try again"
+} else if (error) {
+  show(error.message);
+}
+```
+
+The reference apps render `{error.kind} — {error.message}` directly.
+
+## What `mapConnectionError` recognises
+
+`mapConnectionError(raw)` (exported from `@butr/core`) does the normalisation.
+It recognises:
+
+- butr's own `Error("Connection timeout")` (the 90-second connect timeout) →
+  `Timeout`
+- butr's own `Error("Failed to get account")` / messages containing
+  "not connected" → `NotConnected`
+- EIP-1193 numeric codes: `4001` → `UserRejected`, `-32002` →
+  `RequestPending`
+- message substrings: "user rejected" / "user denied" → `UserRejected`;
+  "locked" → `WalletLocked`; "chain" + "mismatch"/"unsupported" →
+  `ChainMismatch`
+- **anything else** → `Unknown` with `cause` set to the original value
+
+<Callout type="warn">
+  Normalisation is best-effort. A custom connector that throws an
+  unrecognised shape lands in `Unknown`. butr does no retrying — you decide
+  whether to retry based on `kind`.
+</Callout>
+
+**Source:** `packages/core/src/types/errors.ts`.

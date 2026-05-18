@@ -1,0 +1,77 @@
+---
+title: Next.js (App Router)
+description: Client-component provider, RSC boundary, and the EVM-only bundle pattern.
+---
+
+butr is a client-side wallet library — it touches `window`, wallet
+extensions, and `localStorage`. Under the App Router that means the provider
+must be a client component.
+
+## The `"use client"` boundary
+
+The `demo-next` reference is EVM-only (no `@butr/svm` or `@butr/wallets` in the
+bundle). The provider module starts with `"use client"`:
+
+```tsx title="src/wallet-provider.tsx"
+"use client";
+
+import type { ReactNode } from "react";
+import { createWalletSource } from "@butr/core";
+import { WalletManagerProvider, useDiscoveredWallets } from "@butr/react";
+import { discoverEvmAdapters } from "@butr/evm";
+
+// EVM-only: @butr/react + @butr/evm. No @butr/svm / @butr/wallets in the
+// bundle — discovery is a WalletSource built from the EVM discoverer.
+const evmDiscovery = createWalletSource(discoverEvmAdapters);
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider discovery={evmDiscovery} storageKeyPrefix="butr-demo">
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider, useDiscoveredWallets };
+```
+
+Mount it in the root layout (a Server Component importing a Client Component is
+fine):
+
+```tsx title="src/app/layout.tsx"
+import type { ReactNode } from "react";
+import { WalletProvider } from "../wallet-provider";
+
+const RootLayout = ({ children }: { children: ReactNode }) => (
+  <html lang="en">
+    <body>
+      <WalletProvider>{children}</WalletProvider>
+    </body>
+  </html>
+);
+
+export default RootLayout;
+```
+
+Any page using butr hooks (`useConnectWallet`, `useActiveWallet`, …) must also
+be `"use client"`.
+
+## Chains without `@butr/wallets`
+
+EVM-only setups don't bundle `@butr/wallets`. Pull the chain list from
+`@butr/evm` directly:
+
+```tsx
+import { EVM_CHAINS_LIST } from "@butr/evm";
+const CHAINS_BY_PLATFORM = { evm: EVM_CHAINS_LIST, svm: [] as const };
+```
+
+## Want EVM + SVM instead?
+
+Use `autoDiscovery()` from `@butr/wallets` in a `"use client"` module — same as
+[Vite](/docs/frameworks/vite), just with the directive at the top. See
+[Provider setup](/docs/guides/provider-setup) for the full pattern.
+
+<Callout type="info">
+  **Source:** `apps/demo-next/src/wallet-provider.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-next).
+  Run `pnpm dev --filter=demo-next` → `http://localhost:3000`.
+</Callout>

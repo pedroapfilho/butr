@@ -1,0 +1,56 @@
+---
+title: Lifecycle callbacks
+description: onConnect, onConnectError, onHydrated, onDisconnect, onReset, onSlowConnect, onStorageError.
+---
+
+`WalletManagerConfig` (and the matching `WalletManagerProvider` props)
+expose lifecycle callbacks. They exist so you wire observability and side
+effects in one place instead of wrapping every `connect` call in
+`try/catch`.
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+<WalletManagerProvider
+  discovery={discovery}
+  onConnect={(wallet) => track("wallet_connected", { id: wallet.connector.id })}
+  onConnectError={(error, connectorId) => reportToSentry(error, { connectorId })}
+  onHydrated={(outcome) => track("hydrated", outcome)}
+  onDisconnect={(platform) => track("wallet_disconnected", { platform })}
+  onReset={() => clearAuthTokens()}
+  onSlowConnect={(connectorId) => showHint(`${connectorId} is taking a while…`)}
+  onStorageError={(error, context) => reportToSentry(error, { context })}
+  slowConnectThresholdMs={8000}
+>
+```
+
+| Callback | Signature | Fires when |
+| --- | --- | --- |
+| `onConnect` | `(wallet: ConnectedWallet) => void` | a wallet connects successfully |
+| `onConnectError` | `(error: ConnectionError, connectorId: string) => void` | a connect attempt fails |
+| `onHydrated` | `(outcome: HydrationOutcome) => void` | once, after the mount-time restore pass |
+| `onDisconnect` | `(chainPlatform: ChainPlatform) => void` | a wallet disconnects |
+| `onReset` | `() => void \| Promise<void>` | all wallets are reset (clear auth tokens here) |
+| `onSlowConnect` | `(connectorId: string) => void` | a connect exceeds `slowConnectThresholdMs` |
+| `onStorageError` | `(error: unknown, context: string) => void` | a persistence write fails |
+
+## Notes
+
+- **`onConnectError`** receives the normalised
+  [`ConnectionError`](/docs/concepts/errors), so you branch on `error.kind`.
+- **`onHydrated`** is the only place to learn which stored wallets came back —
+  see [hydration](/docs/concepts/hydration).
+- **`onSlowConnect`** fires at most once per attempt, and only if the connect
+  hasn't resolved or rejected by the threshold (default `5000` ms). Useful for
+  a "still trying — check your wallet" hint or a slow-path metric.
+- **`onStorageError`** is the only signal for otherwise-silent persistence
+  failures. Default with no callback is `console.warn`. See
+  [persistence](/docs/concepts/persistence).
+- **`onReset`** may return a promise — a good place to clear server-side
+  sessions or auth tokens.
+
+**Source:** `packages/core/src/types/wallet.ts` (`WalletManagerConfig`),
+`packages/react/src/context.tsx` (`WalletManagerProviderProps`).

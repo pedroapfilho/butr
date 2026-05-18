@@ -1,0 +1,101 @@
+---
+title: "@solana/wallet-adapter-react"
+description: A thin bridge wraps a butr wallet as a BaseMessageSignerWalletAdapter so the standard Solana adapter hooks work unchanged.
+---
+
+If your app (or a dependency) already speaks `@solana/wallet-adapter-react`,
+you don't have to rewrite it. A small bridge wraps the active butr wallet as a
+`BaseMessageSignerWalletAdapter`, so `useWallet()` / `useConnection()` and
+anything consuming them work without changes.
+
+## The bridge
+
+`ButrAdapterBridge` extends `BaseMessageSignerWalletAdapter`, wiring the
+adapter's `connected` flag to butr's pool and mapping `signMessage` /
+`sendTransaction` onto the wallet's Wallet Standard features:
+
+```ts title="butr-adapter-bridge.ts"
+class ButrAdapterBridge extends BaseMessageSignerWalletAdapter {
+  readonly supportedTransactionVersions = new Set<0>([0]);
+
+  constructor(
+    public readonly butr: ButrWalletAdapter,
+    private readonly _wallet: WalletStandardWallet,
+    address: string,
+  ) {
+    super();
+    this._publicKey = new PublicKey(address);
+  }
+
+  get connected() {
+    return this._publicKey !== null;
+  }
+
+  async signMessage(message: Uint8Array): Promise<Uint8Array> {
+    const feature = this._wallet.features["solana:signMessage"];
+    if (!feature) throw new Error("Wallet does not advertise solana:signMessage");
+    const account = this._wallet.accounts[0];
+    const [output] = await feature.signMessage({ account, message });
+    return output.signature;
+  }
+
+  async sendTransaction(transaction, _connection): Promise<string> {
+    const feature = this._wallet.features["solana:signAndSendTransaction"];
+    if (!feature) throw new Error("Wallet does not advertise solana:signAndSendTransaction");
+    const account = this._wallet.accounts[0];
+    const serialised =
+      transaction instanceof Transaction
+        ? transaction.serialize({ requireAllSignatures: false })
+        : transaction.serialize();
+    const [output] = await feature.signAndSendTransaction({
+      account,
+      chain: "solana:devnet",
+      transaction: new Uint8Array(serialised),
+    });
+    return bytesToBase58(output.signature);
+  }
+}
+```
+
+(See the full file for the base58 helper and `connect`/`disconnect` lifecycle —
+butr already did the real handshake, so the adapter's `connect()` just emits
+the lifecycle event.)
+
+## Use it
+
+Construct the bridge **after** butr selects a wallet, then mount the standard
+providers:
+
+```tsx
+const ws = (await wallet.connector.getSigner()) as WalletStandardWallet;
+const bridge = new ButrAdapterBridge(
+  wallet.connector,
+  ws,
+  wallet.account.walletAddress,
+);
+
+<ConnectionProvider endpoint={DEVNET}>
+  <SolanaWalletProvider wallets={[bridge]} autoConnect>
+    <YourExistingApp />
+  </SolanaWalletProvider>
+</ConnectionProvider>;
+```
+
+Inside, `useWallet()` and `useConnection()` work unchanged — butr is invisible
+to consumer code.
+
+<Callout type="warn">
+  The demo bridge implements `signMessage` and `sendTransaction` (which wraps
+  `signAndSendTransaction`). `signTransaction` is intentionally unimplemented —
+  `solana:signTransaction` isn't advertised uniformly across wallets. A real
+  app that needs raw signing would feature-detect and either implement the
+  wallet-specific path or fall back to `signAndSendTransaction`.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-with-solana-wallet-adapter/src/butr-adapter-bridge.ts`
+  and `app.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-with-solana-wallet-adapter).
+  Targets Solana devnet. Run `pnpm dev --filter=demo-with-solana-wallet-adapter`
+  → `http://localhost:5178`.
+</Callout>

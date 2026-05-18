@@ -1,0 +1,73 @@
+---
+title: Caveats & Troubleshooting
+description: The sharp edges — connect timeout, silent storage, best-effort errors, SVM no-ops, Ledger browser support, hydration races.
+---
+
+## Connect hangs, then fails after 90 seconds
+
+butr enforces a 90-second connect timeout. If `connector.connect()` neither
+resolves nor rejects in that window, butr rejects with
+`Error("Connection timeout")`, which normalises to `{ kind: "Timeout" }`. This
+catches wallets that hang without cleanup. Separately, `onSlowConnect` fires
+once if a connect exceeds `slowConnectThresholdMs` (default `5000`) — use it
+for a "still trying — check your wallet" hint.
+
+## State isn't persisting and nothing errors
+
+Persistence is **fire-and-forget by design** — a failed write (quota exceeded,
+IndexedDB shutdown, cross-tab conflict, cookie size limit) does not throw.
+You'll only see it if you set `onStorageError`. The default with no callback is
+`console.warn`. See [persistence](/docs/concepts/persistence).
+
+## An error shows up as `Unknown`
+
+[Error normalisation](/docs/concepts/errors) is best-effort. A connector that
+throws a shape `mapConnectionError` doesn't recognise lands in
+`{ kind: "Unknown", cause }`. Inspect `cause` for the raw value. butr never
+retries — you decide based on `kind`.
+
+## "Request more accounts" does nothing on Solana
+
+SVM `requestAccounts` is effectively a no-op: Wallet Standard wallets expose
+all accounts at once and have no picker. The call resolves cleanly (it refreshes
+the list). Gate the button on `wallet.connector.capabilities.requestAccounts`
+so it doesn't render for SVM.
+
+## Ledger doesn't connect in Firefox/Safari
+
+`@butr/ledger` uses WebUSB, which only exists in Chromium browsers (Chrome,
+Edge, Brave, Arc). It's also signing-only — `sendTx`, `getBalance`, and
+`getTransactionReceipt` reject. See the
+[Ledger connector](/docs/connectors/ledger).
+
+## A previously-connected wallet doesn't come back on reload
+
+Hydration is asynchronous because adapters announce asynchronously. The wallet
+likely sat in `pendingIds` and its adapter hadn't announced yet.
+`WalletManagerProvider` calls `_tryRestoreFromPending` internally each time a
+new adapter is announced when you pass `discovery`. You only need to call it
+yourself if you implement a fully custom `WalletSource` outside the provider.
+Inspect `onHydrated`'s `HydrationOutcome` to see which bucket each wallet fell into.
+
+## It auto-reconnects when I don't want it to (or won't)
+
+`isUserDisconnected` is **session-scoped**. It's set `true` after an explicit
+disconnect or reset and cleared on the next successful connect or a fresh
+session. It exists to suppress auto-reconnect immediately after a manual
+disconnect. Read it with `useIsUserDisconnected()`.
+
+## Two apps on the same origin clobber each other's wallet state
+
+Storage keys are prefixed (`{prefix}:pool`, etc.) with default prefix `butr`.
+Set a distinct `storageKeyPrefix` per app sharing an origin.
+
+## Signature verification fails on Solana
+
+Verify against the `signedMessage` returned by `signMessage`, not your input
+bytes — Solana Wallet Standard wallets may prefix/re-encode the message. See
+[signing](/docs/guides/signing).
+
+## UI flashes "not connected" on every reload
+
+You're rendering before hydration finishes. Gate the first render on
+`useIsHydrated()`.

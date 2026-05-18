@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@repo/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".source/**/*"
+  ],
+  "exclude": ["node_modules"]
+}

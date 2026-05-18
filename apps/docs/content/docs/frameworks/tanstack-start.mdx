@@ -1,0 +1,49 @@
+---
+title: TanStack Start (Vite SSR)
+description: Mount the provider at the router root; EVM-only discovery, no "use client" needed.
+---
+
+TanStack Start is Vite-based SSR. The provider wiring is identical to the
+[Next.js pattern](/docs/frameworks/nextjs) — no `"use client"` directive needed
+(TanStack Start doesn't use RSC). Mount the provider at the router root.
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { createWalletSource } from "@butr/core";
+import { WalletManagerProvider, useDiscoveredWallets } from "@butr/react";
+import { discoverEvmAdapters } from "@butr/evm";
+
+// EVM-only: @butr/react + @butr/evm. No @butr/svm / @butr/wallets in the
+// bundle — discovery is a WalletSource built from the EVM discoverer.
+const evmDiscovery = createWalletSource(discoverEvmAdapters);
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider discovery={evmDiscovery} storageKeyPrefix="butr-demo">
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider, useDiscoveredWallets };
+```
+
+Wrap the router root:
+
+```tsx title="src/routes/__root.tsx"
+import { WalletProvider } from "../wallet-provider";
+
+// inside the root component's render:
+<WalletProvider>{children}</WalletProvider>;
+```
+
+<Callout type="warn">
+  Wallet discovery and `localStorage` are browser-only. The provider state is
+  empty during SSR and hydrates on the client — gate UI on
+  [`useIsHydrated()`](/docs/concepts/hydration) so server and first client
+  render agree.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-tanstack-start/src/wallet-provider.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-tanstack-start).
+  Run `pnpm dev --filter=demo-tanstack-start` → `http://localhost:3001`.
+</Callout>

@@ -1,0 +1,66 @@
+---
+title: Capabilities
+description: Capability flags say what a wallet can do right now. Gate UI on them, not on whether a method exists.
+---
+
+Every connector exposes `capabilities`. Each flag means **"can this work right
+now,"** not "is this method defined." `signMessage: false` means calling
+`signMessage()` would reject; `switchChain: false` means switching is a no-op
+regardless of the chain you pass.
+
+```ts
+type WalletCapabilities = {
+  getBalance: boolean; // getBalance returns a real on-chain value
+  getTransactionReceipt: boolean; // returns a real RPC response
+  requestAccounts: boolean; // requestAccounts will actually do something
+  sendTransaction: boolean; // sendTx / sendTxToChain will work
+  signMessage: boolean; // signMessage will work
+  subscribe: boolean; // wallet emits events butr can bridge
+  switchAccount: boolean; // switchAccount is real (rare for auto adapters)
+  switchChain: boolean; // switchChain routes subsequent calls
+};
+```
+
+## Gate UI on flags
+
+The reference apps do exactly this — the "Request more accounts" button only
+renders when the capability is real:
+
+```tsx
+{wallet.connector.capabilities.requestAccounts ? (
+  <button onClick={() => requestAccounts(wallet.connector.id)}>
+    Request more accounts
+  </button>
+) : null}
+
+{wallet.connector.capabilities.switchChain ? <ChainPicker wallet={wallet} /> : null}
+```
+
+## Where flags come from
+
+- **Auto-discovered EVM / SVM adapters** derive flags from the underlying
+  protocol's feature advertisements (EIP-6963 provider info; Wallet Standard
+  features).
+- **Hand-rolled adapters** declare them explicitly. The shipped optional
+  connectors are fixed:
+
+| Capability | WalletConnect | Ledger |
+| --- | --- | --- |
+| `getBalance` | ✅ | ❌ (no RPC) |
+| `getTransactionReceipt` | ✅ | ❌ |
+| `requestAccounts` | ❌ (re-pair to change) | ❌ |
+| `sendTransaction` | ✅ | ❌ (signing only) |
+| `signMessage` | ✅ | ✅ |
+| `subscribe` | ✅ | ❌ (no events) |
+| `switchAccount` | ❌ | ❌ |
+| `switchChain` | ✅ | ✅ (local chainId) |
+
+<Callout type="warn">
+  SVM wallets that don't advertise `solana:signAndSendTransaction` report
+  `sendTransaction: false`; those without `solana:signMessage` report
+  `signMessage: false`. Always branch on the flag before showing the
+  affordance.
+</Callout>
+
+**Source:** `packages/core/src/types/wallet.ts`,
+`packages/{walletconnect,ledger}/src/capabilities.ts`.

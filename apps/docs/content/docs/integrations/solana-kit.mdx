@@ -1,0 +1,77 @@
+---
+title: "@solana/kit"
+description: Build the transaction message with kit's functional pipeline, sign and send through Wallet Standard.
+---
+
+`@solana/kit` is the next-gen modular Solana SDK. butr owns the wallet; kit
+owns the functional message builder; the wallet's Wallet Standard features own
+signing.
+
+## Get the signer and read state
+
+```ts
+import { address, createSolanaRpc, type Address } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const walletStd = (await wallet.connector.getSigner()) as WalletStandardWallet;
+
+const addr: Address = address(wallet.account.walletAddress);
+const { value } = await rpc.getBalance(addr).send();
+const sol = `${Number(value) / 1_000_000_000} SOL`;
+```
+
+## Build and send a transaction
+
+Build the message with kit's `pipe()`, compile to a wire transaction, and hand
+the bytes to `solana:signAndSendTransaction`:
+
+```ts
+import {
+  appendTransactionMessageInstruction,
+  compileTransaction,
+  createTransactionMessage,
+  getBase64EncodedWireTransaction,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
+
+const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+const message = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayer(addr, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstruction(transferIx, m),
+);
+
+const compiled = compileTransaction(message);
+const wire = getBase64EncodedWireTransaction(compiled);
+const bytes = base64ToBytes(wire);
+
+const feature = walletStd.features["solana:signAndSendTransaction"];
+if (!feature) throw new Error("Wallet does not advertise solana:signAndSendTransaction");
+const account = walletStd.accounts[0];
+const [output] = await feature.signAndSendTransaction({
+  account,
+  chain: "solana:devnet",
+  transaction: bytes,
+});
+```
+
+Message signing uses `solana:signMessage` exactly as in the
+[`@solana/web3.js` integration](/docs/integrations/solana-web3js).
+
+<Callout type="info">
+  The demo hand-rolls the System Program transfer instruction (a 12-byte buffer:
+  `u32` variant `2` + `u64` lamports) rather than depending on
+  `@solana-program/system`, whose codec imports drift between `@solana/kit`
+  versions. Either approach works.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-with-solana-kit/src/app.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-with-solana-kit).
+  Targets Solana devnet. Run `pnpm dev --filter=demo-with-solana-kit` →
+  `http://localhost:5179`.
+</Callout>

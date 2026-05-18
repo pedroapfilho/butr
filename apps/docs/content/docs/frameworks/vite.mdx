@@ -1,0 +1,45 @@
+---
+title: Vite + React (SPA)
+description: Batteries-included setup with WalletManagerProvider and autoDiscovery() in a Vite SPA.
+---
+
+Vite is the simplest case: a client-only SPA, so no server/hydration concerns.
+This is the `demo-vite` reference (EVM + SVM, localStorage).
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider discovery={discovery} storageKeyPrefix="butr-demo">
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider };
+```
+
+```tsx title="src/main.tsx"
+import ReactDOM from "react-dom/client";
+import { App } from "./app";
+import { WalletProvider } from "./wallet-provider";
+
+ReactDOM.createRoot(document.querySelector("#root")!).render(
+  <WalletProvider>
+    <App />
+  </WalletProvider>,
+);
+```
+
+Then use the hooks anywhere under the provider — see
+[Connect & disconnect](/docs/guides/connect-disconnect). Gate the first render
+on [`useIsHydrated()`](/docs/concepts/hydration) so a reload doesn't flash a logged-out UI.
+
+<Callout type="info">
+  **Source:** `apps/demo-vite/src/wallet-provider.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-vite).
+  Run `pnpm dev --filter=demo-vite` → `http://localhost:5173`.
+</Callout>

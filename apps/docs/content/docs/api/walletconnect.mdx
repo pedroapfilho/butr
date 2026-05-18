@@ -1,0 +1,47 @@
+---
+title: "@butr/walletconnect"
+description: createWalletConnectAdapter, options, and constants.
+---
+
+WalletConnect v2 transport for EVM mobile wallets. Requires the optional peer
+dependency `@walletconnect/universal-provider` (dynamically imported).
+
+## `createWalletConnectAdapter(options): Promise<WalletAdapter>`
+
+```ts
+const wc = await createWalletConnectAdapter({
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!,
+  metadata: { name: "My dapp", url: "https://my-dapp.example" },
+  onPairingUri: (uri) => setQrUri(uri),
+});
+```
+
+### `WalletConnectOptions`
+
+| Field | Type | Default |
+| --- | --- | --- |
+| `projectId` | `string` (required) | — |
+| `metadata` | `WalletConnectMetadata` | — |
+| `chains` | `ReadonlyArray<string>` | `["eip155:1"]` |
+| `onPairingUri` | `(uri: string) => void` | — |
+| `id` | `string` | `"walletconnect"` |
+| `name` | `string` | `"WalletConnect"` |
+| `icon` | `string` | `WALLETCONNECT_DEFAULT_ICON` |
+
+`WalletConnectMetadata = { name?; url?; description?; icons? }`.
+
+## Constants
+
+- `WALLETCONNECT_DEFAULT_ICON: string` — default SVG data URI.
+- `WALLETCONNECT_CAPABILITIES: WalletCapabilities` — fixed flags
+  (`requestAccounts` / `switchAccount` are `false`).
+
+## Types
+
+`WalletConnectOptions`, `WalletConnectMetadata`, `UniversalProviderLike`,
+`UniversalProviderConstructor`, and a re-exported `Account`.
+
+See the [WalletConnect connector guide](/docs/connectors/walletconnect) for the
+full setup, QR rendering, and caveats.
+
+**Source:** `packages/walletconnect/src/index.ts`.

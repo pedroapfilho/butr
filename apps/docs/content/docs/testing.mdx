@@ -1,0 +1,84 @@
+---
+title: Testing
+description: "@butr/testing — fake adapters and fake persistence so unit tests never touch a real wallet or localStorage."
+---
+
+`@butr/testing` provides deterministic test doubles. Install it as a dev
+dependency:
+
+```npm
+npm install --save-dev @butr/testing
+```
+
+## `createFakeAdapter(options?): WalletAdapter`
+
+Every method resolves to a deterministic stub. Override individual methods
+after construction to inject failure modes.
+
+```ts
+import { createFakeAdapter } from "@butr/testing";
+
+const adapter = createFakeAdapter({ id: "metamask" });
+adapter.connect = () => Promise.reject(new Error("user rejected"));
+```
+
+### `FakeAdapterOptions`
+
+| Field | Default |
+| --- | --- |
+| `id` | `"fake"` |
+| `name` | `"Fake Wallet"` |
+| `chainPlatform` | `"evm"` |
+| `accounts` | `[]` |
+| `icon` | — |
+| `capabilities` | all `true` (merged over your overrides) |
+
+Stub returns include: `getAccount()` → first account or `null`; `sendTx()` →
+`"0xfakehash"`; `signMessage(msg)` → `{ signature: msg, signedMessage: msg }`;
+`getBalance()` → `{ decimals: 18, formatted: "0", symbol: "ETH" | "SOL", value: 0n }`;
+`subscribe()` → no-op unsubscribe.
+
+Wire it through `createConnector` to test the store or React hooks:
+
+```ts
+const adapter = createFakeAdapter({ id: "fake" });
+const config: WalletManagerConfig = {
+  connectors: [{ id: "fake", name: "Fake", chainPlatform: "evm" }],
+  createConnector: (id) => (id === "fake" ? adapter : null),
+};
+```
+
+## `createFakePersistence(seed?): WalletPersistence`
+
+In-memory `WalletPersistence` mirroring `WalletStorage`'s shape — no
+`localStorage`, no cookies. Reads/writes resolve synchronously (wrapped in
+`Promise.resolve`).
+
+```ts
+import { createFakePersistence } from "@butr/testing";
+
+const persistence = createFakePersistence({
+  activeConnectorId: "fake",
+  pool: {
+    fake: {
+      account: seedAccount,
+      accounts: [seedAccount],
+      chainPlatform: "evm",
+      connectorId: "fake",
+    },
+  },
+  selection: { evm: "fake" },
+  userDisconnected: true,
+});
+```
+
+`FakePersistenceSeed` fields: `pool`, `selection`, `activeConnectorId`,
+`userDisconnected`. Pass it as the `storage` in
+[`WalletManagerConfig`](/docs/guides/lifecycle-callbacks) to test hydration and
+persistence without side effects. `clearAll()` resets everything.
+
+<Callout type="info">
+  **Source:** `packages/testing/src` (`fake-adapter.ts`,
+  `fake-persistence.ts`, and their `__tests__`) in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/packages/testing).
+</Callout>

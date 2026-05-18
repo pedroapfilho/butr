@@ -1,0 +1,13 @@
+{
+  "title": "Guides",
+  "pages": [
+    "provider-setup",
+    "connect-disconnect",
+    "multi-chain",
+    "signing",
+    "transactions",
+    "balances",
+    "custom-storage",
+    "lifecycle-callbacks"
+  ]
+}

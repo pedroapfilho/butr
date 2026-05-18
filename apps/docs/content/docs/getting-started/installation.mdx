@@ -1,0 +1,73 @@
+---
+title: Installation
+description: Which butr packages to install for your setup — batteries-included, EVM-only, or custom.
+---
+
+butr targets React 18+ and uses [Zustand](https://github.com/pmndrs/zustand) as
+a peer dependency. Pick the install that matches your app.
+
+## Batteries-included (recommended)
+
+`@butr/wallets` provides `autoDiscovery()`, a `WalletSource` that composes
+EVM + SVM discovery in one call. Use it with `WalletManagerProvider` from
+`@butr/react`. It depends on `@butr/react`, `@butr/evm`, `@butr/svm`, and
+`@butr/core`, so this single line covers most apps.
+
+```npm
+npm install @butr/wallets zustand
+```
+
+## EVM-only
+
+Skip the Solana bundle entirely. Use `@butr/react` for the provider/hooks and
+`@butr/evm` for EIP-6963 discovery, wired with ~30 lines of your own discovery
+code (see [Provider setup](/docs/guides/provider-setup) and the
+[Next.js framework guide](/docs/frameworks/nextjs)).
+
+```npm
+npm install @butr/react @butr/evm @butr/core zustand
+```
+
+## Optional connectors
+
+These are independent adapters you register alongside discovered wallets. Each
+needs its own optional peer dependency.
+
+WalletConnect v2 (EVM mobile wallets):
+
+```npm
+npm install @butr/walletconnect @walletconnect/universal-provider
+```
+
+Ledger hardware wallet (WebUSB, Chromium only):
+
+```npm
+npm install @butr/ledger @ledgerhq/hw-app-eth @ledgerhq/hw-transport-webusb
+```
+
+## Testing helpers
+
+```npm
+npm install --save-dev @butr/testing
+```
+
+`@butr/testing` provides `createFakeAdapter` and `createFakePersistence` so unit
+tests never touch a real wallet or `localStorage`. See the
+[Testing guide](/docs/testing).
+
+## Peer dependencies
+
+| Package | Peer dependency | Notes |
+| --- | --- | --- |
+| `@butr/core` | `zustand >= 4` | The store is Zustand-backed. |
+| `@butr/react` | `react >= 18`, `zustand >= 4` | |
+| `@butr/wallets` | `react >= 18`, `zustand >= 4` | |
+| `@butr/svm` | `@wallet-standard/app ^1.1.0` | Optional — lazily imported. |
+| `@butr/walletconnect` | `@walletconnect/universal-provider ^2` | Optional — dynamically imported. |
+| `@butr/ledger` | `@ledgerhq/hw-app-eth`, `@ledgerhq/hw-transport-webusb` | Optional. |
+
+<Callout type="info">
+  No environment variables are required to use butr. WalletConnect needs a
+  project ID, but that is passed in code — see the
+  [WalletConnect connector](/docs/connectors/walletconnect).
+</Callout>

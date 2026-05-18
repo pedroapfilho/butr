@@ -1,0 +1,22 @@
+{
+  "title": "Docs",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started",
+    "---Concepts---",
+    "concepts",
+    "---Guides---",
+    "guides",
+    "frameworks",
+    "---Connectors---",
+    "connectors",
+    "---Integrations---",
+    "integrations",
+    "---Reference---",
+    "api",
+    "testing",
+    "troubleshooting"
+  ]
+}

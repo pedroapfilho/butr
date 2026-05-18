@@ -1,0 +1,66 @@
+---
+title: Expo (React Native, web target)
+description: WalletManagerProvider with autoDiscovery() and an AsyncStorage-backed storage driver.
+---
+
+Expo works with `WalletManagerProvider` and `autoDiscovery()`, but React Native
+has no `localStorage`, so you supply an `AsyncStorage`-backed
+[storage driver](/docs/guides/custom-storage). This is the `demo-expo-web`
+reference.
+
+```ts title="src/async-storage-driver.ts"
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { StorageDriver } from "@butr/core";
+
+const asyncStorageDriver: StorageDriver = {
+  getItem: (key) => AsyncStorage.getItem(key),
+  setItem: (key, value) => AsyncStorage.setItem(key, value),
+  removeItem: (key) => AsyncStorage.removeItem(key),
+};
+
+export { asyncStorageDriver };
+```
+
+```tsx title="src/wallet-provider.tsx"
+import type { ReactNode } from "react";
+import { WalletStorage } from "@butr/core";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { asyncStorageDriver } from "./async-storage-driver";
+
+const KEY_PREFIX = "butr-demo";
+
+const discovery = autoDiscovery();
+
+const storage = new WalletStorage({
+  keyPrefix: KEY_PREFIX,
+  persistent: asyncStorageDriver,
+  session: asyncStorageDriver,
+});
+
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider
+    discovery={discovery}
+    storage={storage}
+    storageKeyPrefix={KEY_PREFIX}
+  >
+    {children}
+  </WalletManagerProvider>
+);
+
+export { WalletProvider };
+```
+
+<Callout type="warn">
+  `demo-expo-web` targets the **web** bundle (`expo start --web`), where
+  browser wallet discovery works. Native iOS/Android wallet transports
+  (deep links, in-app browsers) are out of scope for this provider; on native
+  you'd pair through [WalletConnect](/docs/connectors/walletconnect) instead.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-expo-web/src/wallet-provider.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-expo-web).
+  Run `pnpm dev --filter=demo-expo-web` → `http://localhost:8081`. See
+  [custom storage](/docs/guides/custom-storage) for the session-storage caveat.
+</Callout>

@@ -1,0 +1,10 @@
+{
+  "title": "Connectors",
+  "pages": [
+    "index",
+    "injected-evm",
+    "solana-wallet-standard",
+    "walletconnect",
+    "ledger"
+  ]
+}

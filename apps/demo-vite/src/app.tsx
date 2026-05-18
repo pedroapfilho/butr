@@ -7,12 +7,13 @@ import {
   useConnectedWallets,
   useConnectionError,
   useConnectionStatus,
+  useDiscoveredWallets,
   useDisconnectWallet,
   useIsHydrated,
   useRequestAccounts,
   useSetActiveConnector,
 } from "@butr/react";
-import { CHAINS_BY_PLATFORM, useDiscoveredWallets } from "@butr/wallets";
+import { CHAINS_BY_PLATFORM } from "@butr/wallets";
 
 const App = () => (
   <main className="mx-auto max-w-2xl px-6 py-10 font-sans text-neutral-900">

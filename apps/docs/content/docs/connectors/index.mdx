@@ -1,0 +1,44 @@
+---
+title: Overview
+description: Every connector plugs in through the same createConnector seam — discovered, or registered explicitly.
+---
+
+A connector is a `WalletAdapter`. They reach butr two ways, both through
+`WalletManagerProvider`:
+
+- **Discovered** — browser wallets announce themselves. `@butr/evm` listens for
+  EIP-6963; `@butr/svm` listens for the Wallet Standard. `@butr/wallets`
+  composes both via `autoDiscovery()`. You don't register these by hand.
+- **Registered explicitly** — WalletConnect and Ledger aren't browser-injected.
+  You build the adapter once and return it from `createConnector`.
+
+| Connector | Package | Platform | Discovery | Notes |
+| --- | --- | --- | --- | --- |
+| [Injected EVM](/docs/connectors/injected-evm) | `@butr/evm` | evm | EIP-6963 + injected fallback | MetaMask, Rabby, Brave, … |
+| [Solana Wallet Standard](/docs/connectors/solana-wallet-standard) | `@butr/svm` | svm | Wallet Standard | Phantom, Solflare, Backpack, … |
+| [WalletConnect](/docs/connectors/walletconnect) | `@butr/walletconnect` | evm | explicit | Mobile wallets; needs a Reown project id |
+| [Ledger](/docs/connectors/ledger) | `@butr/ledger` | evm | explicit | WebUSB, Chromium-only, signing-only |
+
+Registering an explicit connector follows the same shape every time. Build the
+adapter at module scope (it's async), then wire it through the unified provider:
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { createWalletConnectAdapter } from "@butr/walletconnect";
+
+const discovery = autoDiscovery();
+const wc = await createWalletConnectAdapter({ projectId, onPairingUri });
+const extra = new Map([[wc.id, wc]]);
+
+<WalletManagerProvider
+  discovery={discovery}
+  connectors={[{ id: wc.id, name: wc.name, chainPlatform: "evm" }]}
+  createConnector={(id) => extra.get(id) ?? null}
+>
+  {children}
+</WalletManagerProvider>
+```
+
+When both `discovery` and `createConnector` are present, an id is resolved from
+discovered adapters first, then `createConnector`.

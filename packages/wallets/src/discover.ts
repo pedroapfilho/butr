@@ -7,7 +7,8 @@ import { createDiscoveryBus } from "./discovery-bus";
  * Which platforms to discover. Omitting a flag (or setting it to
  * `false`) skips that platform entirely — useful for apps that target
  * only EVM or only Solana, so unused listeners don't fire and unused
- * adapters don't show up in `useDiscoveredWallets()`.
+ * adapters don't appear in the discovered-wallets list surfaced by the
+ * provider's `discovery` source.
  *
  * Default when omitted: `evm` and `svm` both `true`, `injected`
  * `true` (only meaningful when `evm` is also true).

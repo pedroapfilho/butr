@@ -1,0 +1,77 @@
+---
+title: "@solana/web3.js"
+description: Connection for reads, Transaction/SystemProgram builders, Wallet Standard features for signing.
+---
+
+butr discovers Solana Wallet Standard wallets and manages the connection.
+`@solana/web3.js` provides `Connection` for chain reads and the
+`Transaction` / `SystemProgram` builders; signing and sending flow through the
+wallet's native Wallet Standard features.
+
+## Get the signer
+
+`getSigner()` on an SVM adapter returns the `WalletStandardWallet`:
+
+```ts
+import type {
+  SolanaSignAndSendTransactionFeature,
+  SolanaSignMessageFeature,
+  WalletStandardWallet,
+} from "@butr/svm";
+
+const walletStd = (await wallet.connector.getSigner()) as WalletStandardWallet;
+```
+
+## Read chain state
+
+```ts
+import { Connection } from "@solana/web3.js";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const lamports = await connection.getBalance(publicKey);
+```
+
+## Sign a message
+
+```ts
+const feature = walletStd.features["solana:signMessage"] as
+  | SolanaSignMessageFeature
+  | undefined;
+if (!feature) throw new Error("Wallet does not advertise solana:signMessage");
+const account = walletStd.accounts[0];
+const [output] = await feature.signMessage({ account, message });
+// output.signature: Uint8Array
+```
+
+## Build and send a transaction
+
+Build with `@solana/web3.js`, submit through
+`solana:signAndSendTransaction`:
+
+```ts
+const feature = walletStd.features["solana:signAndSendTransaction"] as
+  | SolanaSignAndSendTransactionFeature
+  | undefined;
+if (!feature) throw new Error("Wallet does not advertise solana:signAndSendTransaction");
+const account = walletStd.accounts[0];
+
+const [output] = await feature.signAndSendTransaction({
+  account,
+  chain: "solana:devnet",
+  transaction: new Uint8Array(serialisedTx),
+});
+```
+
+<Callout type="warn">
+  Feature-detect every time (`if (!feature) throw`). Wallets advertise the
+  Wallet Standard features unevenly; gate UI on
+  `wallet.connector.capabilities.sendTransaction` /
+  `.signMessage`.
+</Callout>
+
+<Callout type="info">
+  **Source:** `apps/demo-with-solana-web3js/src/app.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-with-solana-web3js).
+  Targets Solana devnet. Run `pnpm dev --filter=demo-with-solana-web3js` →
+  `http://localhost:5177`.
+</Callout>

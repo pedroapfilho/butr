@@ -1,0 +1,49 @@
+---
+title: "@butr/svm"
+description: Wallet Standard discovery, the adapter builder, capabilities, and Solana chains.
+---
+
+## Discovery
+
+### `discoverSvmAdapters(onAdapter): () => void`
+
+Subscribe to Wallet Standard registrations. Returns an unsubscribe function.
+Lazily imports `@wallet-standard/app` (optional peer dependency).
+
+## Adapter builder
+
+### `buildSvmAdapter(wallet: WalletStandardWallet): WalletAdapter`
+
+Wrap a Wallet Standard wallet into a butr `WalletAdapter`.
+
+### `slugify(name: string): string`
+
+Stable id derivation from a wallet name (adapter authoring).
+
+## Capabilities
+
+### `resolveWalletStandardCapabilities(wallet): WalletCapabilities`
+
+Derive `WalletCapabilities` from advertised Wallet Standard features
+(`solana:signMessage`, `solana:signAndSendTransaction`, events, …).
+
+Type: `WalletStandardCapabilityInput`.
+
+## Chains
+
+- `SVM_CHAINS` — record keyed by chain id.
+- `SVM_CHAINS_LIST` — array (mainnet / testnet / devnet).
+
+## Types
+
+`WalletStandardWallet`, `WalletStandardWalletAccount`, `WalletStandardAppModule`,
+`WalletsApp`, `StandardConnectFeature`, `StandardDisconnectFeature`,
+`StandardEventsFeature`, `StandardEventsListener`, `SolanaSignMessageFeature`,
+`SolanaSignMessageInput`, `SolanaSignMessageOutput`,
+`SolanaSignAndSendTransactionFeature`, `SolanaSignAndSendTransactionInput`,
+`SolanaSignAndSendTransactionOutput`.
+
+These feature types are what you cast `getSigner()` to when signing/sending —
+see the [Solana integrations](/docs/integrations/solana-web3js).
+
+**Source:** `packages/svm/src/index.ts`.

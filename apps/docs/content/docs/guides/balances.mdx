@@ -1,0 +1,66 @@
+---
+title: Read balances
+description: useBalance for the built-in path, or query your own RPC for full control.
+---
+
+## `useBalance` — the built-in path
+
+`useBalance(connectorId?, mint?)` is an async hook returning a typed lifecycle
+state plus `refetch`:
+
+```tsx
+import { useBalance } from "@butr/react";
+
+const balance = useBalance(wallet.connector.id);
+
+const text =
+  balance.status === "success"
+    ? `${balance.data.formatted} ${balance.data.symbol}`
+    : balance.status === "loading"
+      ? "…"
+      : balance.status === "error"
+        ? "error"
+        : "—";
+```
+
+`balance.data` is a `Balance`:
+
+```ts
+type Balance = {
+  decimals: number; // 9 for SOL, 18 for ETH
+  formatted: string; // human-readable, trailing zeros trimmed
+  symbol: string; // "SOL", "ETH"
+  value: bigint; // raw integer amount
+};
+```
+
+Omit `connectorId` to read the active wallet. Pass `mint` for an SPL/token
+balance where the connector supports it.
+
+<Callout type="warn">
+  `useBalance` only returns a real value when
+  `wallet.connector.capabilities.getBalance` is `true`. Ledger, for example, is
+  signing-only and has no RPC — its `getBalance` is `false`. Query an RPC
+  yourself for those.
+</Callout>
+
+## Querying RPC yourself
+
+For full control (custom RPC, caching, token lists) read through your chain
+library instead. butr stays out of the way:
+
+```ts
+// viem — its own public client, not the wallet's RPC
+const wei = await publicClient.getBalance({ address: account });
+const eth = `${formatEther(wei)} ETH`;
+
+// @solana/kit
+const { value } = await rpc.getBalance(addr).send();
+const sol = `${Number(value) / 1_000_000_000} SOL`;
+```
+
+<Callout type="info">
+  **Source:** `useBalance` usage in `apps/demo-vite/src/app.tsx`; manual RPC
+  reads in `apps/demo-with-viem/src/app.tsx` and
+  `apps/demo-with-solana-kit/src/app.tsx`.
+</Callout>

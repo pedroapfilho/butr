@@ -1,6 +1,11 @@
 // Provider
 export type { WalletManagerProviderProps } from "./context";
-export { WalletManagerProvider, WalletStoreContext, useWalletStoreContext } from "./context";
+export {
+  WalletManagerProvider,
+  WalletStoreContext,
+  useDiscoveredWallets,
+  useWalletStoreContext,
+} from "./context";
 
 // Sync hooks
 export {

@@ -1,0 +1,13 @@
+{
+  "title": "Core Concepts",
+  "pages": [
+    "index",
+    "connectors-and-wallets",
+    "platforms",
+    "pool-selection-active",
+    "capabilities",
+    "hydration",
+    "persistence",
+    "errors"
+  ]
+}

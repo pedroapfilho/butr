@@ -1,0 +1,70 @@
+---
+title: Sign a message
+description: Per-account message signing, and why you verify against signedMessage on Solana.
+---
+
+`signMessage` lives on the wallet half of the adapter. It takes the message
+bytes and an optional `account` to sign with a specific exposed address.
+
+```ts
+signMessage(
+  msg: Uint8Array,
+  account?: Account,
+): Promise<{ signature: Uint8Array; signedMessage: Uint8Array }>;
+```
+
+## EVM (and via butr's adapter)
+
+The `demo-vite` reference signs per account straight off the connector:
+
+```tsx
+const canSign = wallet.connector.capabilities.signMessage;
+
+const handleSign = async () => {
+  const bytes = new TextEncoder().encode("Hello from the butr demo");
+  await wallet.connector.signMessage(bytes, account);
+};
+
+{canSign ? <button onClick={() => void handleSign()}>Sign</button> : null}
+```
+
+Always gate the affordance on `capabilities.signMessage`.
+
+## Solana / Wallet Standard
+
+When you've bridged into a Solana library you'll often call the wallet's
+feature directly. The pattern from `demo-with-solana-kit`:
+
+```ts
+const feature = walletStd.features["solana:signMessage"];
+if (!feature) throw new Error("Wallet does not advertise solana:signMessage");
+const account = walletStd.accounts[0];
+const [output] = await feature.signMessage({ account, message });
+// output.signature is a Uint8Array
+```
+
+<Callout type="warn">
+  Verify the signature against the returned `signedMessage`, **not** your input
+  bytes. Solana Wallet Standard wallets may prefix or re-encode the message
+  internally. EVM wallets echo the input, so there it's the same bytes — but
+  writing verification against `signedMessage` works for both.
+</Callout>
+
+## Signing through an integration library
+
+If you've wired viem / wagmi (see [Integrations](/docs/integrations/viem)),
+sign through that library's API instead — it uses the same underlying provider
+butr handed you:
+
+```ts
+// viem
+const sig = await walletClient.signMessage({ account, message: "Hello" });
+// wagmi
+const sig = await signMessage(wagmiConfig, { message: "Hello" });
+```
+
+<Callout type="info">
+  **Source:** `AccountRow` in `apps/demo-vite/src/app.tsx`; `handleSign` in
+  `apps/demo-with-solana-kit/src/app.tsx` and
+  `apps/demo-with-viem/src/app.tsx`.
+</Callout>

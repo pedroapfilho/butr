@@ -1,0 +1,79 @@
+---
+title: Persistence
+description: How connection state survives reloads, the storage driver interface, and why writes are silent by design.
+---
+
+butr persists the pool, the per-platform selection, the active connector id,
+and the session-scoped disconnect flag, so a reload restores the previous
+session (subject to [hydration](/docs/concepts/hydration)).
+
+## Storage keys
+
+Keys are prefixed: `{prefix}:pool`, `{prefix}:selection`, `{prefix}:active`,
+`{prefix}:userDisconnected`. The default prefix is `butr`; set
+`storageKeyPrefix` to isolate multiple apps sharing one origin.
+
+## Storage drivers
+
+A driver is a tiny get/set/remove interface. butr ships three and accepts any
+custom one (including async — React Native / IndexedDB).
+
+```ts
+type StorageDriver = {
+  getItem(key: string): MaybePromise<string | null>;
+  setItem(key: string, value: string): MaybePromise<void>;
+  removeItem(key: string): MaybePromise<void>;
+};
+```
+
+| Factory | Backing store |
+| --- | --- |
+| `createBrowserStorageDriver()` | `localStorage` (default) |
+| `createCookieStorageDriver(options)` | cookies (domain/path/SameSite/secure) |
+| `createMemoryStorageDriver()` | in-memory (no persistence) |
+
+Wrap a driver in `WalletStorage` and pass it as `storage`:
+
+```ts
+import { WalletStorage } from "@butr/core";
+
+const storage = new WalletStorage({
+  keyPrefix: "myapp",
+  persistent: driver, // multi-session
+  session: driver, // current session only
+});
+```
+
+See the [custom storage guide](/docs/guides/custom-storage) for the React
+Native / Expo `AsyncStorage` driver.
+
+## Writes are silent by design
+
+butr's persistence layer is **fire-and-forget**. Any individual write can fail
+— quota exceeded, IndexedDB shutdown, cross-tab conflicts, cookie size limits —
+without corrupting the in-memory store. Each storage key is durable on its own;
+the writes race intentionally.
+
+<Callout type="warn">
+  Because writes are unobserved, a failed write is invisible unless you ask. Set
+  `onStorageError` to surface them. `context` is a short string naming the
+  failed write (e.g. `"failed to persist pool"`). The default behaviour when no
+  callback is set is `console.warn`.
+</Callout>
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+<WalletManagerProvider
+  discovery={discovery}
+  onStorageError={(error, context) => {
+    reportToSentry(error, { context });
+  }}
+>
+```
+
+**Source:** `packages/core/src/storage`,
+`packages/core/src/store/wallet-store.ts`.

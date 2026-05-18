@@ -1,0 +1,108 @@
+---
+title: Ledger
+description: Ledger hardware wallet over WebUSB — Chromium-only, signing-only, no RPC or events.
+---
+
+`@butr/ledger` is a Ledger hardware-wallet adapter using WebUSB. It signs
+messages and transactions; it does **not** broadcast or read chain state.
+
+## Install
+
+```npm
+npm install @butr/ledger @ledgerhq/hw-app-eth @ledgerhq/hw-transport-webusb
+```
+
+Both Ledger packages are optional peer dependencies.
+
+## Build the adapter
+
+```ts
+import { createLedgerAdapter } from "@butr/ledger";
+
+const ledger = await createLedgerAdapter({
+  chainId: 1, // Ethereum mainnet (EIP-155 number, not CAIP-2)
+  accountCount: 3, // expose 3 derivation paths
+});
+```
+
+| Option | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `chainId` | `number` | `1` | EIP-155 chain number. Ledger has no internal "current chain"; `switchChain` just updates this locally. |
+| `accountCount` | `number` | `1` | How many derivation paths to enumerate via `getAccounts()`. Each walk hits the device (~1–2s) — keep it small. |
+| `derivationPathPrefix` | `string` | `44'/60'/0'/0` | Standard Ethereum path; `getAccounts(n)` appends the index. |
+| `id` / `name` / `icon` | `string` | `"ledger"` / `"Ledger"` / `LEDGER_DEFAULT_ICON` | |
+
+Register it through the unified provider exactly like
+[WalletConnect](/docs/connectors/walletconnect):
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { createLedgerAdapter } from "@butr/ledger";
+
+const discovery = autoDiscovery();
+const ledger = await createLedgerAdapter({ chainId: 1, accountCount: 3 });
+const extra = new Map([[ledger.id, ledger]]);
+
+<WalletManagerProvider
+  discovery={discovery}
+  connectors={[{ id: ledger.id, name: ledger.name, chainPlatform: "evm" }]}
+  createConnector={(id) => extra.get(id) ?? null}
+>
+  {children}
+</WalletManagerProvider>
+```
+
+On `connect()` the browser shows the WebUSB permission prompt and the user
+unlocks the device.
+
+## Capabilities
+
+`LEDGER_CAPABILITIES` is hardware-only:
+
+```ts
+{
+  getBalance: false, // no RPC
+  getTransactionReceipt: false,
+  requestAccounts: false,
+  sendTransaction: false, // signs, doesn't broadcast
+  signMessage: true,
+  subscribe: false, // no events
+  switchAccount: false,
+  switchChain: true, // local chainId only
+}
+```
+
+## Caveats
+
+<Callout type="warn">
+  **WebUSB only.** Works in Chromium browsers (Chrome, Edge, Brave, Arc). Not
+  Firefox, not Safari. Gate the Ledger affordance accordingly.
+</Callout>
+
+<Callout type="warn">
+  **Signing only.** `sendTx`, `sendTxToChain`, `getBalance`, and
+  `getTransactionReceipt` reject with descriptive errors. To submit a
+  transaction, wrap `getSigner()` with viem/ethers and your own RPC, then
+  broadcast there.
+</Callout>
+
+- **No persistence** — the device must be reconnected on reload (no session
+  survives).
+- **No events** — `subscribe()` is a no-op.
+- **Multiple accounts via paths** — there's no `switchAccount`; expose more
+  addresses with `accountCount` and pass a specific `account` to
+  `signMessage`. Walking to a non-active path is sequential and slow.
+- **Manual chain** — call `switchChain()` to update the adapter's local
+  chainId; it isn't written to the device.
+
+Error messages you may surface: *"sendTx not supported — Ledger signs but
+doesn't broadcast"*, *"getBalance not supported — Ledger has no RPC"*,
+*"received non-EVM chain"*, *"address not found on this device"* (outside the
+configured `accountCount`).
+
+<Callout type="info">
+  **Source:** `packages/ledger/src` (`adapter.ts`, `capabilities.ts`,
+  `__tests__/adapter.test.ts`) in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/packages/ledger).
+</Callout>

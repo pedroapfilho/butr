@@ -1,0 +1,114 @@
+---
+title: WalletConnect
+description: WalletConnect v2 for EVM mobile wallets — Reown project id, app metadata, and the QR you render yourself.
+---
+
+`@butr/walletconnect` is a WalletConnect v2 adapter for EVM **mobile** wallets
+(Trust, Rainbow, Argent, Zerion, MetaMask Mobile, …). It is not browser-injected
+— you build the adapter once and register it through `createConnector`.
+
+## Install
+
+```npm
+npm install @butr/walletconnect @walletconnect/universal-provider
+```
+
+`@walletconnect/universal-provider` is an optional peer dependency; the adapter
+dynamically imports it, so it never bloats your bundle unless used.
+
+## Build the adapter
+
+```ts
+import { createWalletConnectAdapter } from "@butr/walletconnect";
+
+const wc = await createWalletConnectAdapter({
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!,
+  metadata: {
+    name: "My dapp",
+    url: "https://my-dapp.example",
+    description: "…",
+    icons: ["https://my-dapp.example/icon.png"],
+  },
+  chains: ["eip155:1", "eip155:137"],
+  onPairingUri: (uri) => setQrUri(uri),
+});
+```
+
+`createWalletConnectAdapter(options)` returns a `Promise<WalletAdapter>`.
+
+| Option | Type | Notes |
+| --- | --- | --- |
+| `projectId` | `string` (required) | From [Reown Cloud](https://cloud.reown.com). |
+| `metadata` | `{ name?; url?; description?; icons? }` | Shown in the mobile wallet during pairing. **Some wallets refuse to pair without `name` and `url`.** |
+| `chains` | `ReadonlyArray<string>` | CAIP-2 ids. Default: `["eip155:1"]`. |
+| `onPairingUri` | `(uri: string) => void` | Fires when a QR / deep link must be shown. |
+| `id` | `string` | Adapter id. Default `"walletconnect"`. |
+| `name` | `string` | Display name. Default `"WalletConnect"`. |
+| `icon` | `string` | Override icon (`WALLETCONNECT_DEFAULT_ICON` is the fallback). |
+
+## Register it
+
+The adapter is fully formed but **un-paired** — pairing happens when butr's
+runtime calls `adapter.connect()` (when the user clicks "Connect"). Build the
+adapter once at module scope, then pass it through the unified provider:
+
+```tsx
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+import { createWalletConnectAdapter } from "@butr/walletconnect";
+
+const discovery = autoDiscovery();
+const wc = await createWalletConnectAdapter({
+  projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID!,
+  onPairingUri: (uri) => setQrUri(uri),
+});
+const extra = new Map([[wc.id, wc]]);
+
+<WalletManagerProvider
+  discovery={discovery}
+  connectors={[{ id: wc.id, name: wc.name, chainPlatform: "evm" }]}
+  createConnector={(id) => extra.get(id) ?? null}
+>
+  {children}
+</WalletManagerProvider>
+```
+
+Build the adapter **once at app boot**, cache it, and re-register on each
+mount. butr's hydration reconnects through the same session if it's still live
+on the relay.
+
+## Rendering the QR
+
+<Callout type="warn">
+  butr ships **no** QR renderer. `onPairingUri` hands you the URI string; you
+  render it (`@walletconnect/modal`, a `qrcode` lib, or your own UI). On mobile,
+  forward it to `window.location` to trigger the OS wallet picker.
+</Callout>
+
+## Capabilities & caveats
+
+`WALLETCONNECT_CAPABILITIES` is fixed once paired (the adapter speaks EIP-1193
+against the relay):
+
+```ts
+{
+  getBalance: true,
+  getTransactionReceipt: true,
+  requestAccounts: false, // no EIP-2255 — "more accounts" means re-pairing
+  sendTransaction: true,
+  signMessage: true,
+  subscribe: true,
+  switchAccount: false, // pick the account in the mobile wallet
+  switchChain: true,
+}
+```
+
+- Changing the account set means tearing down the session and re-pairing.
+- Events (`accountsChanged`, `chainChanged`, `disconnect`) are relayed through
+  `adapter.subscribe()` automatically.
+
+<Callout type="info">
+  **Source:** `packages/walletconnect/src` (`adapter.ts`, `capabilities.ts`,
+  `__tests__/adapter.test.ts`) in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/packages/walletconnect).
+</Callout>

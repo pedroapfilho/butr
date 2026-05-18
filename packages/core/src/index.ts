@@ -21,6 +21,7 @@ export { mapConnectionError } from "./types";
 
 // Discovery seam
 export type { WalletSource } from "./wallet-source";
+export { createWalletSource } from "./wallet-source";
 
 // Store
 export type { ConnectionStatus, WalletStore, WalletStoreState } from "./store";

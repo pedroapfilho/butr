@@ -1,29 +1,38 @@
-import React from "react";
-import { act, render, renderHook, screen } from "@testing-library/react";
+import React, { type PropsWithChildren } from "react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { WalletAdapter, WalletSource } from "@butr/core";
 import { createFakeAdapter, createFakePersistence } from "@butr/testing";
-import { WalletManagerProvider, useWalletStoreContext } from "../context";
-import { renderHookWithProvider } from "./render-with-provider";
+import {
+  WalletManagerProvider,
+  useDiscoveredWallets,
+  useWalletStoreContext,
+} from "../context";
+import { useConnectWallet, useConnectedWallets, useWalletStore } from "../hooks";
 
-describe("WalletManagerProvider", () => {
-  it("renders children", () => {
-    render(
-      <WalletManagerProvider
-        config={{
-          connectors: [],
-          createConnector: () => null,
-          storage: createFakePersistence(),
-        }}
-      >
-        <div>hello</div>
-      </WalletManagerProvider>,
-    );
-    expect(screen.getByText("hello")).toBeInTheDocument();
-  });
+const sourceOf = (...adapters: Array<WalletAdapter>): WalletSource => ({
+  subscribe: (onAdapter) => {
+    for (const a of adapters) {
+      onAdapter(a);
+    }
+    return () => {};
+  },
+});
 
-  it("hydrates the store on mount and exposes isHydrated via context", async () => {
-    const { result } = renderHookWithProvider(() => useWalletStoreContext());
-    // Hydration is async — wait for it to settle.
+// eslint-disable-next-line react/display-name -- test wrapper factory, display name not needed
+const wrap =
+  (props: Partial<React.ComponentProps<typeof WalletManagerProvider>>) =>
+  ({ children }: PropsWithChildren) => (
+    <WalletManagerProvider storage={createFakePersistence()} {...props}>
+      {children}
+    </WalletManagerProvider>
+  );
+
+describe("WalletManagerProvider (unified)", () => {
+  it("hydrates and provides the store", async () => {
+    const { result } = renderHook(() => useWalletStoreContext(), {
+      wrapper: wrap({}),
+    });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
@@ -31,112 +40,118 @@ describe("WalletManagerProvider", () => {
     expect(result.current.getState().isHydrated).toBe(true);
   });
 
-  it("seeds the store with the storage pool on first mount", async () => {
-    const adapter = createFakeAdapter({ id: "fake-evm", chainPlatform: "evm" });
-    const storage = createFakePersistence({
-      activeConnectorId: adapter.id,
+  it("useDiscoveredWallets is empty without a discovery prop", () => {
+    const { result } = renderHook(() => useDiscoveredWallets(), { wrapper: wrap({}) });
+    expect(result.current).toEqual([]);
+  });
+
+  it("populates useDiscoveredWallets from the discovery WalletSource", async () => {
+    const adapter = createFakeAdapter({ id: "fake-evm" });
+    const { result } = renderHook(() => useDiscoveredWallets(), {
+      wrapper: wrap({ discovery: sourceOf(adapter) }),
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.map((a) => a.id)).toEqual(["fake-evm"]);
+  });
+
+  it("resolves discovered id before falling back to createConnector", async () => {
+    const discovered = createFakeAdapter({
+      accounts: [{ chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155", reference: "1" }, id: "eip155:1:0x1", walletAddress: "0x1" }],
+      id: "dup",
+    });
+    const fallback = vi.fn(() => null);
+    const { result } = renderHook(
+      () => ({ connect: useConnectWallet(), connected: useConnectedWallets() }),
+      { wrapper: wrap({ createConnector: fallback, discovery: sourceOf(discovered) }) },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await result.current.connect("dup");
+    });
+    expect(fallback).not.toHaveBeenCalledWith("dup");
+    expect(result.current.connected.map((w) => w.connector.id)).toContain("dup");
+  });
+
+  it("uses createConnector when discovery has no match", async () => {
+    const manual = createFakeAdapter({
+      accounts: [{ chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155", reference: "1" }, id: "eip155:1:0x1", walletAddress: "0x1" }],
+      id: "manual",
+    });
+    const { result } = renderHook(
+      () => ({ connect: useConnectWallet(), connected: useConnectedWallets() }),
+      { wrapper: wrap({ createConnector: (id) => (id === "manual" ? manual : null) }) },
+    );
+    await act(async () => {
+      await Promise.resolve();
+      await result.current.connect("manual");
+    });
+    expect(result.current.connected.map((w) => w.connector.id)).toContain("manual");
+  });
+
+  it("forwards onHydrated", async () => {
+    const onHydrated = vi.fn();
+    renderHook(() => null, { wrapper: wrap({ onHydrated }) });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(onHydrated).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a pending wallet when its adapter announces after mount (deferred)", async () => {
+    const deferredAccount = {
+      chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155" as const, reference: "1" },
+      id: "eip155:1:0xdeferred",
+      walletAddress: "0xdeferred",
+    };
+    const seededPersistence = createFakePersistence({
+      activeConnectorId: "deferred",
       pool: {
-        [adapter.id]: {
-          account: {
-            chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155", reference: "1" },
-            id: "eip155:1:0x0",
-            walletAddress: "0x0",
-          },
-          accounts: [
-            {
-              chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155", reference: "1" },
-              id: "eip155:1:0x0",
-              walletAddress: "0x0",
-            },
-          ],
+        deferred: {
+          account: deferredAccount,
+          accounts: [deferredAccount],
           chainPlatform: "evm",
-          connectorId: adapter.id,
+          connectorId: "deferred",
         },
       },
     });
-    const { result } = renderHookWithProvider(() => useWalletStoreContext(), {
-      adapters: [adapter],
-      storage,
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(result.current.getState().pool.has(adapter.id)).toBe(true);
-    expect(result.current.getState().activeConnectorId).toBe(adapter.id);
-  });
 
-  it("fires onHydrated once with the eager-restore outcome", async () => {
-    const onHydrated = vi.fn();
-    renderHook(() => null, {
-      wrapper: ({ children }) => (
-        <WalletManagerProvider
-          config={{
-            connectors: [],
-            createConnector: () => null,
-            onHydrated,
-            storage: createFakePersistence(),
-          }}
-        >
-          {children}
-        </WalletManagerProvider>
-      ),
-    });
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(onHydrated).toHaveBeenCalledTimes(1);
-    expect(onHydrated).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dropped: expect.any(Array),
-        pendingIds: expect.any(Array),
-        restoredIds: expect.any(Array),
-      }),
+    let emitAdapter: ((adapter: ReturnType<typeof createFakeAdapter>) => void) | null = null;
+    const deferredSource: WalletSource = {
+      subscribe: (onAdapter) => {
+        emitAdapter = onAdapter;
+        queueMicrotask(() => {
+          emitAdapter?.(createFakeAdapter({ accounts: [deferredAccount], id: "deferred" }));
+        });
+        return () => {
+          emitAdapter = null;
+        };
+      },
+    };
+
+    const { result } = renderHook(
+      () => useWalletStore((s) => ({ isHydrated: s.isHydrated, pool: s.pool })),
+      {
+        wrapper: wrap({ discovery: deferredSource, storage: seededPersistence }),
+      },
     );
-  });
 
-  it("only hydrates once across re-renders", async () => {
-    const onHydrated = vi.fn();
-    const { rerender } = renderHook(() => null, {
-      wrapper: ({ children }) => (
-        <WalletManagerProvider
-          config={{
-            connectors: [],
-            createConnector: () => null,
-            onHydrated,
-            storage: createFakePersistence(),
-          }}
-        >
-          {children}
-        </WalletManagerProvider>
-      ),
-    });
     await act(async () => {
       await Promise.resolve();
       await Promise.resolve();
+      await Promise.resolve();
     });
-    rerender();
-    rerender();
-    expect(onHydrated).toHaveBeenCalledTimes(1);
+
+    expect(result.current.isHydrated).toBe(true);
+    expect(result.current.pool.has("deferred")).toBe(true);
   });
 });
 
-describe("useWalletStoreContext", () => {
-  it("returns the store when used inside the provider", () => {
-    const { result } = renderHookWithProvider(() => useWalletStoreContext());
-    expect(result.current).toBeDefined();
-    expect(typeof result.current.getState).toBe("function");
-  });
-
-  it("throws when used outside the provider", () => {
-    // renderHook reports the thrown error; suppress the React error log so
-    // we don't pollute test output.
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => renderHook(() => useWalletStoreContext())).toThrow(
-      /WalletManagerProvider/,
-    );
-    spy.mockRestore();
+describe("useDiscoveredWallets outside provider", () => {
+  it("returns empty array", () => {
+    const { result } = renderHook(() => useDiscoveredWallets());
+    expect(result.current).toEqual([]);
   });
 });

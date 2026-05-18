@@ -1,0 +1,32 @@
+{
+  "name": "docs",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 4000",
+    "build": "next build",
+    "start": "next start -p 4000",
+    "postinstall": "fumadocs-mdx",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint app lib",
+    "clean": "rm -rf .next .source node_modules"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "fumadocs-core": "^16.8.11",
+    "fumadocs-mdx": "^15.0.6",
+    "fumadocs-ui": "^16.8.11",
+    "next": "^16.0.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/mdx": "^2.0.13",
+    "@types/node": "^25.6.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^6.0.3"
+  }
+}

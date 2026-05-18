@@ -1,0 +1,64 @@
+---
+title: wagmi
+description: Bridge butr's provider into wagmi's injected connector via target.provider.
+---
+
+butr discovers and manages the wallet; `@wagmi/core` handles chain reads,
+signing, and tx submission against the same EIP-1193 provider butr exposes.
+
+## Build the wagmi config
+
+Pass butr's provider into wagmi's `injected` connector via the
+`target.provider` override. Keep the transport as plain RPC (`http()`) for
+read-only queries so reads don't hit the wallet.
+
+```ts
+import { createConfig, http, type Config } from "@wagmi/core";
+import { injected } from "@wagmi/connectors";
+import { sepolia } from "viem/chains";
+
+const buildWagmiConfig = (
+  provider: EIP1193Provider,
+  name: string,
+  id: string,
+): Config =>
+  createConfig({
+    chains: [sepolia],
+    connectors: [injected({ target: { id, name, provider: () => provider } })],
+    transports: { [sepolia.id]: http() },
+  });
+```
+
+## Run the connect lifecycle once
+
+After building the config, run wagmi's `connect` so subsequent `@wagmi/core`
+actions know which connector to use. The wallet already authorised the dapp
+through butr, so this resolves **silently — no second popup**:
+
+```ts
+const provider = (await wallet.connector.getSigner()) as EIP1193Provider;
+const cfg = buildWagmiConfig(provider, wallet.connector.name, wallet.connector.id);
+await connect(cfg, { connector: cfg.connectors[0]! });
+```
+
+## Use wagmi actions
+
+```ts
+const result = await getBalance(cfg, { address: account });
+const sig = await signMessage(cfg, { message: "Hello from butr + wagmi" });
+const hash = await sendTransaction(cfg, {
+  chainId: sepolia.id,
+  to: BURN_ADDRESS,
+  value: parseEther("0"),
+});
+```
+
+Every sign and every transaction hits the actual wallet butr connected — not a
+mock.
+
+<Callout type="info">
+  **Source:** `apps/demo-with-wagmi/src/app.tsx` in the
+  [butr repository](https://github.com/pedroapfilho/butr/tree/main/apps/demo-with-wagmi).
+  Targets Sepolia. Run `pnpm dev --filter=demo-with-wagmi` →
+  `http://localhost:5176`.
+</Callout>
