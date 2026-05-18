@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { AutoWalletManagerProvider } from "@butr/wallets";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
 
 const WalletProvider = ({ children }: { children: ReactNode }) => (
-  <AutoWalletManagerProvider storageKeyPrefix="butr-demo">
+  <WalletManagerProvider discovery={autoDiscovery()} storageKeyPrefix="butr-demo">
     {children}
-  </AutoWalletManagerProvider>
+  </WalletManagerProvider>
 );
 
 export { WalletProvider };

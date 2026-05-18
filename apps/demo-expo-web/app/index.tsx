@@ -16,12 +16,13 @@ import {
   useConnectedWallets,
   useConnectionError,
   useConnectionStatus,
+  useDiscoveredWallets,
   useDisconnectWallet,
   useIsHydrated,
   useRequestAccounts,
   useSetActiveConnector,
 } from "@butr/react";
-import { CHAINS_BY_PLATFORM, useDiscoveredWallets } from "@butr/wallets";
+import { CHAINS_BY_PLATFORM } from "@butr/wallets";
 
 // NOTE: Expo target uses React Native's StyleSheet with design tokens
 // that mirror Tailwind's neutral palette and spacing. NativeWind v5
