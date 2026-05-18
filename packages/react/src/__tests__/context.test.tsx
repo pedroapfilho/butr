@@ -8,7 +8,7 @@ import {
   useDiscoveredWallets,
   useWalletStoreContext,
 } from "../context";
-import { useConnectWallet, useConnectedWallets } from "../hooks";
+import { useConnectWallet, useConnectedWallets, useWalletStore } from "../hooks";
 
 const sourceOf = (...adapters: Array<WalletAdapter>): WalletSource => ({
   subscribe: (onAdapter) => {
@@ -98,6 +98,54 @@ describe("WalletManagerProvider (unified)", () => {
       await Promise.resolve();
     });
     expect(onHydrated).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores a pending wallet when its adapter announces after mount (deferred)", async () => {
+    const deferredAccount = {
+      chain: { id: "eip155:1", name: "Ethereum", namespace: "eip155" as const, reference: "1" },
+      id: "eip155:1:0xdeferred",
+      walletAddress: "0xdeferred",
+    };
+    const seededPersistence = createFakePersistence({
+      activeConnectorId: "deferred",
+      pool: {
+        deferred: {
+          account: deferredAccount,
+          accounts: [deferredAccount],
+          chainPlatform: "evm",
+          connectorId: "deferred",
+        },
+      },
+    });
+
+    let emitAdapter: ((adapter: ReturnType<typeof createFakeAdapter>) => void) | null = null;
+    const deferredSource: WalletSource = {
+      subscribe: (onAdapter) => {
+        emitAdapter = onAdapter;
+        queueMicrotask(() => {
+          emitAdapter?.(createFakeAdapter({ accounts: [deferredAccount], id: "deferred" }));
+        });
+        return () => {
+          emitAdapter = null;
+        };
+      },
+    };
+
+    const { result } = renderHook(
+      () => useWalletStore((s) => ({ isHydrated: s.isHydrated, pool: s.pool })),
+      {
+        wrapper: wrap({ discovery: deferredSource, storage: seededPersistence }),
+      },
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.isHydrated).toBe(true);
+    expect(result.current.pool.has("deferred")).toBe(true);
   });
 });
 

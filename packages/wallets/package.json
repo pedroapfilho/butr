@@ -1,7 +1,7 @@
 {
   "name": "@butr/wallets",
   "version": "0.1.0",
-  "description": "Batteries-included EVM + SVM discovery composition + AutoWalletManagerProvider.",
+  "description": "Batteries-included EVM + SVM discovery: autoDiscovery() WalletSource + combined chain registries.",
   "license": "MIT",
   "author": "Pedro Filho <pedro@filho.me>",
   "repository": {
