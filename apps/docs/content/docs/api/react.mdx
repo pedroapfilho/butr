@@ -18,7 +18,7 @@ values, `useRef`, `useCallback`).
 | Prop | Type | Notes |
 | --- | --- | --- |
 | `children` | `React.ReactNode` | Required. |
-| `discovery` | `WalletSource` | Auto-discovery source. Omit for a fully-manual provider (no protocol code enters the bundle). |
+| `discovery` | `WalletSource` | Auto-discovery source (e.g. `autoDiscovery()`). Omit to skip auto-discovery; no protocol code enters the bundle. |
 | `connectors` | `Array<ConnectorMeta>` | Metadata for explicitly-registered connectors. |
 | `createConnector` | `(id: string) => WalletAdapter \| null` | Explicit connector factory. Resolved after `discovery`. |
 | `onConnect` | `WalletManagerConfig["onConnect"]` | Lifecycle callback. |

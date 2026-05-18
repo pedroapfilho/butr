@@ -27,8 +27,8 @@ type WalletManagerProviderProps = {
   connectors?: Array<ConnectorMeta>;
   /** Explicit/manual connector factory. Resolved after `discovery`. */
   createConnector?: (id: string) => WalletAdapter | null;
-  /** Auto-discovery source. Omit for a fully-manual provider (no
-   *  protocol code enters the bundle). */
+  /** Auto-discovery source. Omit to skip auto-discovery; no
+   *  protocol code enters the bundle. */
   discovery?: WalletSource;
   onConnect?: WalletManagerConfig["onConnect"];
   onConnectError?: WalletManagerConfig["onConnectError"];

@@ -43,12 +43,11 @@ Edge, Brave, Arc). It's also signing-only — `sendTx`, `getBalance`, and
 ## A previously-connected wallet doesn't come back on reload
 
 Hydration is asynchronous because adapters announce asynchronously. The wallet
-likely sat in `pendingIds` and its adapter hadn't announced yet. In a manual
-discovery setup you must call
-`store.getState()._tryRestoreFromPending(adapter.id)` after each discovered
-adapter (the [provider-setup guide](/docs/guides/provider-setup) shows it);
-`WalletManagerProvider` with a `discovery` source does this for you. Inspect
-`onHydrated`'s `HydrationOutcome` to see which bucket each wallet fell into.
+likely sat in `pendingIds` and its adapter hadn't announced yet.
+`WalletManagerProvider` calls `_tryRestoreFromPending` internally each time a
+new adapter is announced when you pass `discovery`. You only need to call it
+yourself if you implement a fully custom `WalletSource` outside the provider.
+Inspect `onHydrated`'s `HydrationOutcome` to see which bucket each wallet fell into.
 
 ## It auto-reconnects when I don't want it to (or won't)
 
