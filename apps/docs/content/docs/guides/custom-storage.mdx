@@ -56,14 +56,18 @@ const asyncStorageDriver: StorageDriver = {
 export { asyncStorageDriver };
 ```
 
-Wire it into `AutoWalletManagerProvider`:
+Wire it into `WalletManagerProvider`:
 
 ```tsx title="wallet-provider.tsx"
+import type { ReactNode } from "react";
 import { WalletStorage } from "@butr/core";
-import { AutoWalletManagerProvider } from "@butr/wallets";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
 import { asyncStorageDriver } from "./async-storage-driver";
 
 const KEY_PREFIX = "butr-demo";
+
+const discovery = autoDiscovery();
 
 const storage = new WalletStorage({
   keyPrefix: KEY_PREFIX,
@@ -71,10 +75,14 @@ const storage = new WalletStorage({
   session: asyncStorageDriver,
 });
 
-const WalletProvider = ({ children }) => (
-  <AutoWalletManagerProvider storage={storage} storageKeyPrefix={KEY_PREFIX}>
+const WalletProvider = ({ children }: { children: ReactNode }) => (
+  <WalletManagerProvider
+    discovery={discovery}
+    storage={storage}
+    storageKeyPrefix={KEY_PREFIX}
+  >
     {children}
-  </AutoWalletManagerProvider>
+  </WalletManagerProvider>
 );
 ```
 

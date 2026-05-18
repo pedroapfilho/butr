@@ -62,7 +62,13 @@ the writes race intentionally.
 </Callout>
 
 ```tsx
-<AutoWalletManagerProvider
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+<WalletManagerProvider
+  discovery={discovery}
   onStorageError={(error, context) => {
     reportToSentry(error, { context });
   }}

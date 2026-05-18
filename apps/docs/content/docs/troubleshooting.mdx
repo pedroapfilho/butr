@@ -47,8 +47,8 @@ likely sat in `pendingIds` and its adapter hadn't announced yet. In a manual
 discovery setup you must call
 `store.getState()._tryRestoreFromPending(adapter.id)` after each discovered
 adapter (the [provider-setup guide](/docs/guides/provider-setup) shows it);
-`AutoWalletManagerProvider` does this for you. Inspect `onHydrated`'s
-`HydrationOutcome` to see which bucket each wallet fell into.
+`WalletManagerProvider` with a `discovery` source does this for you. Inspect
+`onHydrated`'s `HydrationOutcome` to see which bucket each wallet fell into.
 
 ## It auto-reconnects when I don't want it to (or won't)
 

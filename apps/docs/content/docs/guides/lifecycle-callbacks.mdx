@@ -3,13 +3,19 @@ title: Lifecycle callbacks
 description: onConnect, onConnectError, onHydrated, onDisconnect, onReset, onSlowConnect, onStorageError.
 ---
 
-`WalletManagerConfig` (and the matching `AutoWalletManagerProvider` props)
+`WalletManagerConfig` (and the matching `WalletManagerProvider` props)
 expose lifecycle callbacks. They exist so you wire observability and side
 effects in one place instead of wrapping every `connect` call in
 `try/catch`.
 
 ```tsx
-<AutoWalletManagerProvider
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
+
+<WalletManagerProvider
+  discovery={discovery}
   onConnect={(wallet) => track("wallet_connected", { id: wallet.connector.id })}
   onConnectError={(error, connectorId) => reportToSentry(error, { connectorId })}
   onHydrated={(outcome) => track("hydrated", outcome)}
@@ -47,4 +53,4 @@ effects in one place instead of wrapping every `connect` call in
   sessions or auth tokens.
 
 **Source:** `packages/core/src/types/wallet.ts` (`WalletManagerConfig`),
-`packages/wallets/src/auto-provider.tsx` (`AutoWalletManagerProviderProps`).
+`packages/react/src/context.tsx` (`WalletManagerProviderProps`).
