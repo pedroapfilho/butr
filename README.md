@@ -76,7 +76,7 @@ All web demos bind distinct ports so they can run concurrently.
 - **Library:** `@butr/*` workspace packages (React 19, zustand).
 - **Build:** Turborepo + pnpm workspaces; tsdown for package builds (tree-shaking, minification, source maps, watch mode).
 - **Linting / formatting:** oxlint + oxfmt.
-- **Testing:** Vitest for unit tests; Playwright wired but currently placeholder.
+- **Testing:** Vitest for unit tests.
 
 ## Setup
 
@@ -110,7 +110,6 @@ Open the URL from the table above. Distinct ports let every demo run side by sid
 | `pnpm dev`          | Start every app in development mode.       |
 | `pnpm build`        | Build every package and app.               |
 | `pnpm test`         | Run unit tests across the monorepo.        |
-| `pnpm test:e2e`     | Run Playwright e2e tests (placeholder).    |
 | `pnpm lint`         | Run oxlint.                                |
 | `pnpm format`       | Format with oxfmt.                         |
 | `pnpm format:check` | Check formatting without writing.          |

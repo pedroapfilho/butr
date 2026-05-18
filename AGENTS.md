@@ -18,7 +18,6 @@ pnpm format:check                       # oxfmt (check)
 
 # Testing
 pnpm test                               # vitest unit tests
-pnpm test:e2e                           # playwright (placeholder, no current tests)
 ```
 
 ## Architecture
@@ -59,7 +58,7 @@ pnpm test:e2e                           # playwright (placeholder, no current te
 - **Linter:** oxlint. Config in `oxlint.config.ts`.
 - **Formatter:** oxfmt.
 - **Pre-commit:** Husky + lint-staged.
-- **Testing:** Vitest for unit tests; Playwright is wired but `tests/e2e/` is currently empty.
+- **Testing:** Vitest for unit tests.
 - **Dead code:** `pnpm fallow:dead` to detect unused exports.
 
 ## Conventions
