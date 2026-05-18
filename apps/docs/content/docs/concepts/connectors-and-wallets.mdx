@@ -59,24 +59,33 @@ type Wallet = {
   input.
 </Callout>
 
-## The seam: `createConnector`
+## The seam: `discovery` and `createConnector`
 
-Everything is registered through one function. butr asks for an adapter by id;
-you return it (or `null`).
+`WalletManagerProvider` accepts two orthogonal ways to supply adapters, and
+they compose: when an id is requested, discovered adapters are checked first,
+then `createConnector`.
 
 ```ts
-type WalletManagerConfig = {
-  connectors: Array<ConnectorMeta>;
-  createConnector: (id: string) => WalletAdapter | null;
+// WalletManagerProvider props (simplified)
+type WalletManagerProviderProps = {
+  /** Auto-discovery source. Omit for a fully-manual provider. */
+  discovery?: WalletSource;
+  /** Explicit adapter factory — resolved after `discovery`. */
+  createConnector?: (id: string) => WalletAdapter | null;
+  connectors?: Array<ConnectorMeta>;
   // …lifecycle callbacks
 };
 ```
 
-This is why "how do I add wallet X" always has the same shape — discovered
-injected wallets, [WalletConnect](/docs/connectors/walletconnect),
-[Ledger](/docs/connectors/ledger), or a hand-written adapter all arrive through
-`createConnector`. `@butr/wallets`' `AutoWalletManagerProvider` wires this seam
-to EVM + SVM discovery for you.
+Pass `discovery` to let the provider subscribe to wallet announcements
+automatically. Pass `createConnector` to register explicit adapters such as
+[WalletConnect](/docs/connectors/walletconnect) or [Ledger](/docs/connectors/ledger).
+Both can be present at the same time — a hand-written adapter supplements the
+discovered ones, and an id resolves from the discovered set first.
+
+This is why "how do I add wallet X" always has the same shape: injected,
+WalletConnect, Ledger, or a hand-written adapter all arrive through the same
+`createConnector` seam.
 
 ## ConnectedWallet
 

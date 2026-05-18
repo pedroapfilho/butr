@@ -28,7 +28,8 @@ type HydrationOutcome = {
   storage; surface "Couldn't reconnect Phantom — connect again" if you want.
 
 ```tsx
-<AutoWalletManagerProvider
+<WalletManagerProvider
+  discovery={discovery}
   onHydrated={(outcome) => {
     console.log("restored", outcome.restoredIds);
     console.log("pending", outcome.pendingIds);
@@ -52,15 +53,16 @@ if (!isHydrated) return <p>Loading…</p>;
 
 If a pending adapter announces and completes its restore *before* the main
 hydration pass finishes, the store **merges** it into the pool rather than
-overwriting. Both eager- and late-restored entries survive. In manual discovery
-setups you trigger this yourself after discovering an adapter:
+overwriting. Both eager- and late-restored entries survive.
+
+When you pass `discovery` to `WalletManagerProvider`, the provider calls
+`_tryRestoreFromPending` internally each time a new adapter is announced — you
+do not need to wire this yourself. You only call it directly if you implement a
+fully custom `WalletSource` outside the provider:
 
 ```ts
 void store.getState()._tryRestoreFromPending(adapter.id);
 ```
-
-`AutoWalletManagerProvider` does this for you; you only write it in custom
-discovery wiring (see the [Next.js guide](/docs/frameworks/nextjs)).
 
 **Source:** `packages/core/src/store/wallet-store.ts`,
 `packages/core/src/types/wallet.ts`.

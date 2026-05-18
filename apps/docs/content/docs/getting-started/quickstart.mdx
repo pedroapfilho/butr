@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: A working multi-chain wallet UI in five minutes with AutoWalletManagerProvider.
+description: A working multi-chain wallet UI in five minutes with WalletManagerProvider.
 ---
 
 This walks through the smallest useful app: discover wallets, connect one, show
@@ -9,18 +9,25 @@ batteries-included `@butr/wallets` package.
 
 ## 1. Wrap your app in the provider
 
-`AutoWalletManagerProvider` discovers EVM (EIP-6963) and Solana (Wallet
-Standard) wallets in one provider and persists the connection in
-`localStorage`. `storageKeyPrefix` namespaces the storage keys.
+`WalletManagerProvider` from `@butr/react` is the single provider. Pass it a
+`WalletSource` via the `discovery` prop to enable auto-discovery. `autoDiscovery()`
+from `@butr/wallets` composes EVM (EIP-6963) and Solana (Wallet Standard) in one
+call. `storageKeyPrefix` namespaces the storage keys.
+
+Hoist the `discovery` source to module scope so the same instance is reused
+across renders:
 
 ```tsx title="wallet-provider.tsx"
 import type { ReactNode } from "react";
-import { AutoWalletManagerProvider } from "@butr/wallets";
+import { WalletManagerProvider } from "@butr/react";
+import { autoDiscovery } from "@butr/wallets";
+
+const discovery = autoDiscovery();
 
 const WalletProvider = ({ children }: { children: ReactNode }) => (
-  <AutoWalletManagerProvider storageKeyPrefix="butr-demo">
+  <WalletManagerProvider discovery={discovery} storageKeyPrefix="butr-demo">
     {children}
-  </AutoWalletManagerProvider>
+  </WalletManagerProvider>
 );
 
 export { WalletProvider };
@@ -62,8 +69,7 @@ themselves. `useConnectWallet()` returns a function you call with an adapter
 `id`.
 
 ```tsx
-import { useConnectWallet, useConnectedWallets } from "@butr/react";
-import { useDiscoveredWallets } from "@butr/wallets";
+import { useConnectWallet, useConnectedWallets, useDiscoveredWallets } from "@butr/react";
 
 const WalletPicker = () => {
   const connect = useConnectWallet();

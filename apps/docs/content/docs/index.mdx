@@ -32,20 +32,22 @@ butr is layered. Each package depends only on the ones below it.
 | `@butr/react` | Provider + hooks over the store. | `@butr/core` |
 | `@butr/evm` | EIP-1193 / EIP-6963 / injected discovery and adapters. | `@butr/core` |
 | `@butr/svm` | Wallet Standard discovery and adapters for Solana. | `@butr/core` |
-| `@butr/wallets` | Batteries-included: composes EVM + SVM discovery and ships `AutoWalletManagerProvider`. | core, react, evm, svm |
+| `@butr/wallets` | Batteries-included EVM+SVM discovery source (`autoDiscovery`) + combined chain registries. | core, react, evm, svm |
 | `@butr/walletconnect` | WalletConnect v2 adapter for EVM mobile wallets. | core, evm |
 | `@butr/ledger` | Ledger hardware-wallet adapter (WebUSB, signing-only). | `@butr/core` |
 | `@butr/testing` | Fake adapter + fake persistence for unit tests. | `@butr/core` |
 
 Most apps want `@butr/wallets` (it pulls in `@butr/react`, `@butr/evm`,
-`@butr/svm`, `@butr/core`). Reach for the lower-level packages when you want an
-EVM-only bundle or a custom discovery pipeline.
+`@butr/svm`, `@butr/core`). Pass `autoDiscovery()` from `@butr/wallets` to
+`WalletManagerProvider` from `@butr/react` for EVM+SVM discovery. Reach for
+the lower-level packages when you want an EVM-only bundle or a custom discovery
+pipeline.
 
 ## Where to go next
 
 - [Installation](/docs/getting-started/installation) — pick your packages.
 - [Quickstart](/docs/getting-started/quickstart) — a working app in five
-  minutes with `AutoWalletManagerProvider`.
+  minutes with `WalletManagerProvider`.
 - [Core concepts](/docs/concepts) — the mental model: connectors, the pool,
   platforms, hydration.
 - [Guides](/docs/guides/provider-setup) — connect, sign, send, switch chains.

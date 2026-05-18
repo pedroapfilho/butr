@@ -8,9 +8,10 @@ a peer dependency. Pick the install that matches your app.
 
 ## Batteries-included (recommended)
 
-`@butr/wallets` composes EVM + SVM discovery and ships
-`AutoWalletManagerProvider`. It depends on `@butr/react`, `@butr/evm`,
-`@butr/svm`, and `@butr/core`, so this single line covers most apps.
+`@butr/wallets` provides `autoDiscovery()`, a `WalletSource` that composes
+EVM + SVM discovery in one call. Use it with `WalletManagerProvider` from
+`@butr/react`. It depends on `@butr/react`, `@butr/evm`, `@butr/svm`, and
+`@butr/core`, so this single line covers most apps.
 
 ```npm
 npm install @butr/wallets zustand
