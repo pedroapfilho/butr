@@ -68,7 +68,7 @@ then `createConnector`.
 ```ts
 // WalletManagerProvider props (simplified)
 type WalletManagerProviderProps = {
-  /** Auto-discovery source. Omit for a fully-manual provider. */
+  /** Auto-discovery source. Omit to skip auto-discovery. */
   discovery?: WalletSource;
   /** Explicit adapter factory — resolved after `discovery`. */
   createConnector?: (id: string) => WalletAdapter | null;
