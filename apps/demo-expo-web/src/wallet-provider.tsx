@@ -6,6 +6,8 @@ import { asyncStorageDriver } from "./async-storage-driver";
 
 const KEY_PREFIX = "butr-demo";
 
+const discovery = autoDiscovery();
+
 const storage = new WalletStorage({
   keyPrefix: KEY_PREFIX,
   persistent: asyncStorageDriver,
@@ -14,7 +16,7 @@ const storage = new WalletStorage({
 
 const WalletProvider = ({ children }: { children: ReactNode }) => (
   <WalletManagerProvider
-    discovery={autoDiscovery()}
+    discovery={discovery}
     storage={storage}
     storageKeyPrefix={KEY_PREFIX}
   >
