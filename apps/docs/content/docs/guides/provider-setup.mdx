@@ -59,9 +59,9 @@ const WalletProvider = ({ children }: { children: ReactNode }) => (
 export { WalletProvider, useDiscoveredWallets };
 ```
 
-This is the pattern used by `demo-next` and `demo-tanstack-start`. `demo-next`
-also re-exports `useDiscoveredWallets` from `@butr/react` as a convenience — it
-is not a custom implementation.
+This is the pattern used by `demo-next` and `demo-tanstack-start`; both
+re-export `useDiscoveredWallets` from `@butr/react` so consuming files import it
+from the local `wallet-provider` module.
 
 <Callout type="info">
   **Source:** `apps/demo-next/src/wallet-provider.tsx` and
